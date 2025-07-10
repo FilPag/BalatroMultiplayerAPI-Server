@@ -1,10 +1,35 @@
 import type Client from "./Client.js";
 import GameModes from "./GameMode.js";
+import { InsaneInt } from "./InsaneInt.js";
 import type {
 	ActionLobbyInfo,
+	ActionLobbyOptions,
 	ActionServerToClient,
 	GameMode,
 } from "./actions.js";
+
+export type LobbyOptions = {
+	back: string;
+	challenge: number;
+	custom_seed: string;
+	death_on_round_loss: boolean;
+	disable_live_and_timer_hud: boolean;
+	different_decks: boolean;
+	different_seeds: boolean;
+	gamemode: string;
+	gold_on_life_loss: boolean;
+	multiplayer_jokers: boolean;
+	no_gold_on_round_loss: boolean;
+	normal_bosses: boolean;
+	pvp_start_round: number;
+	ruleset: string;
+	showdown_starting_antes: number;
+	sleeve: string;
+	stake: number;
+	starting_lives: number;
+	timer_base_seconds: number;
+	timer_increment_seconds: number;
+};
 
 const Lobbies = new Map();
 
@@ -17,43 +42,77 @@ const generateUniqueLobbyCode = (): string => {
 	return Lobbies.get(result) ? generateUniqueLobbyCode() : result;
 };
 
-export const getEnemy = (client: Client): [Lobby | null, Client | null] => {
-	const lobby = client.lobby
-	if (!lobby) return [null, null]
-	if (lobby.host?.id === client.id) {
-		return [lobby, lobby.guest]
-	} else if (lobby.guest?.id === client.id) {
-		return [lobby, lobby.host]
+export const getHostID = (client: Client): string => {
+	const lobby = client.lobby;
+	if (!lobby) return "";
+
+	const host = lobby.players[lobby.hostIndex];
+
+	if (host == undefined) {
+		console.error("Host not found in lobby", lobby.code)
+		return ""
 	}
-	return [lobby, null]
+	return host.id;
 }
+
+export const getOtherPlayers = (client: Client): [Lobby | null, Client[]] => {
+	const lobby = client.lobby;
+	if (!lobby) return [null, []];
+	const others = lobby.players.filter(p => p.id !== client.id);
+	return [lobby, others];
+};
 
 class Lobby {
 	code: string;
-	host: Client | null;
-	guest: Client | null;
+	players: Client[];
+	hostIndex: number;
 	gameMode: GameMode;
 	// biome-ignore lint/suspicious/noExplicitAny: 
-	options: { [key: string]: any };
+	options: LobbyOptions;
+	maxPlayers: number;
 
-	// Attrition is the default game mode
-	constructor(host: Client, gameMode: GameMode = "attrition") {
+	constructor(host: Client, ruleset: string, gameMode: GameMode = "attrition", maxPlayers?: number) {
 		do {
 			this.code = generateUniqueLobbyCode();
 		} while (Lobbies.get(this.code));
 		Lobbies.set(this.code, this);
 
-		this.host = host;
-		this.guest = null;
 		this.gameMode = gameMode;
-		this.options = {};
+		this.hostIndex = 0;
+		this.options = GameModes[gameMode].defaultOptions;
+		this.options.ruleset = ruleset;
+		this.players = [host];
+
+		switch(ruleset){
+			case "standard":
+				this.options.multiplayer_jokers = true;
+				break;
+			case "vanilla":
+				this.options.multiplayer_jokers = false;
+				break;
+			case "badlatro":
+				this.options.multiplayer_jokers = true;
+				break;
+			default:
+			case "coop":
+				this.options.multiplayer_jokers = false;
+		}
+
+		// Set maxPlayers based on gamemode
+		if (typeof maxPlayers === 'number') {
+			this.maxPlayers = maxPlayers;
+		} else if (gameMode === 'coopSurvival') {
+			this.maxPlayers = 8; // Allow up to 8 in coop
+		} else {
+			this.maxPlayers = 2; // All other modes limited to 2
+		}
 
 		host.setLobby(this);
 		host.sendAction({
 			action: "joinedLobby",
 			code: this.code,
-			type: this.gameMode,
 		});
+		host.sendAction({ action: "lobbyOptions", options: this.options });
 	}
 
 	static get = (code: string) => {
@@ -61,19 +120,18 @@ class Lobby {
 	};
 
 	leave = (client: Client) => {
-		if (this.host?.id === client.id) {
-			this.host = this.guest;
-			this.guest = null;
-		} else if (this.guest?.id === client.id) {
-			this.guest = null;
+		const idx = this.players.findIndex(p => p.id === client.id);
+		if (idx !== -1) {
+			this.players.splice(idx, 1);
+			if (this.hostIndex === idx) {
+				// Host left, assign new host if possible
+				this.hostIndex = this.players.length > 0 ? 0 : -1;
+			}
 		}
-
 		client.setLobby(null);
-		if (this.host === null) {
+		if (this.players.length === 0) {
 			Lobbies.delete(this.code);
 		} else {
-			// TODO: Refactor for more than 2 players
-			// Stop game if someone leaves
 			this.broadcastAction({ action: "stopGame" });
 			this.resetPlayers();
 			this.broadcastLobbyInfo();
@@ -81,103 +139,77 @@ class Lobby {
 	};
 
 	join = (client: Client) => {
-		if (this.guest) {
+		if (this.players.length >= this.maxPlayers) {
 			client.sendAction({
 				action: "error",
 				message: "Lobby is full or does not exist.",
 			});
 			return;
 		}
-		this.guest = client;
+		this.players.push(client);
 		client.setLobby(this);
 		client.sendAction({
 			action: "joinedLobby",
 			code: this.code,
-			type: this.gameMode,
 		});
-		client.sendAction({ action: "lobbyOptions", gamemode: this.gameMode, ...this.options });
 		this.broadcastLobbyInfo();
+		client.sendAction({ action: "lobbyOptions", options: this.options });
 	};
 
 	broadcastAction = (action: ActionServerToClient) => {
-		this.host?.sendAction(action);
-		this.guest?.sendAction(action);
+		this.players.forEach(player => player.sendAction(action));
 	};
 
 	broadcastLobbyInfo = () => {
-		if (!this.host) {
-			return;
-		}
+		if (this.players.length === 0) return;
 
-		const action: ActionLobbyInfo = {
-			action: "lobbyInfo",
-			host: this.host.username,
-			hostHash: this.host.modHash,
-			isHost: false,
-			hostCached: this.host.isCached,
-		};
-
-		if (this.guest?.username) {
-			action.guest = this.guest.username;
-			action.guestHash = this.guest.modHash;
-			action.guestCached = this.guest.isCached;
-			this.guest.sendAction(action);
-		}
-
-		// Should only sent true to the host
-		action.isHost = true;
-		this.host.sendAction(action);
+		this.players.forEach((player, idx) => {
+			const action: ActionLobbyInfo = {
+				action: "lobbyInfo",
+				host: this.players[this.hostIndex]?.lobbyData?.username || "",
+				isHost: idx === this.hostIndex,
+				local_id: player.id,
+				players: this.players.map(p => ({
+					id: p.id,
+					...p.lobbyData
+				}))
+			};
+			player.sendAction(action);
+		});
 	};
 
-	setPlayersLives = (lives: number) => {
-		// TODO: Refactor for more than 2 players
-		if (this.host) this.host.lives = lives;
-		if (this.guest) this.guest.lives = lives;
-
-		this.broadcastAction({ action: "playerInfo", lives });
-	};
-
-	// Deprecated
 	sendGameInfo = (client: Client) => {
-		if (this.host !== client && this.guest !== client) {
+		if (!this.players.some(p => p === client)) {
 			return client.sendAction({
 				action: "error",
 				message: "Client not in Lobby",
 			});
 		}
-
 		client.sendAction({
 			action: "gameInfo",
 			...GameModes[this.gameMode].getBlindFromAnte(client.ante, this.options),
 		});
 	};
 
-	setOptions = (options: { [key: string]: string }) => {
-		for (const key of Object.keys(options)) {
-			if (options[key] === "true" || options[key] === "false") {
-				this.options[key] = options[key] === "true";
-			} else {
-				this.options[key] = options[key];
-			}
-		}
-		this.guest?.sendAction({ action: "lobbyOptions", gamemode: this.gameMode, ...options });
+	setOptions = (options: LobbyOptions) => {
+		this.options = options;
+		this.players.forEach(player => player.sendAction({ action: "lobbyOptions", options: this.options }));
 	};
 
 	resetPlayers = () => {
-		if (this.host) {
-			this.host.isReady = false;
-			this.host.resetBlocker();
-			this.host.setLocation("Blind Select");
-			this.host.furthestBlind = 0;
-			this.host.skips = 0;
-		}
-		if (this.guest) {
-			this.guest.isReady = false;
-			this.guest.resetBlocker();
-			this.guest.setLocation("Blind Select");
-			this.guest.furthestBlind = 0;
-			this.guest.skips = 0;
-		}
+		this.players.forEach(player => {
+			player.lobbyData.isReady = false;
+			player.resetBlocker();
+			player.location = "Blind Select";
+			player.furthest_blind = 0;
+			player.skips = 0;
+		});
+	}
+
+	setPlayersLives = (lives: number) => {
+		this.players.forEach(player => {
+			player.lives = lives;
+		});
 	}
 }
 
