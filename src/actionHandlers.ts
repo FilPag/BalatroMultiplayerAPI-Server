@@ -253,6 +253,9 @@ const playHandAction = (
         // Players lose a life and reset score
         lobby.players.forEach((p) => {
           p.score = new InsaneInt(0, 0, 0);
+          broadcastGameStateUpdate(p, {
+            score: p.score.toString(),
+          })
           p.loseLife(true);
           p.sendAction({ action: "endPvP", lost: true });
         });
