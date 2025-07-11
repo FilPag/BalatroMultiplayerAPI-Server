@@ -339,6 +339,9 @@ const setAnteAction = (
   { ante }: ActionHandlerArgs<ActionSetAnte>,
   client: Client
 ) => {
+  client.lobby?.players.forEach((p) => {
+    p.score = new InsaneInt(0, 0, 0);
+  })
   client.ante = ante;
 };
 
