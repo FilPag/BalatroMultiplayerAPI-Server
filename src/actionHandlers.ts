@@ -132,11 +132,14 @@ const readyBlindAction = (client: Client) => {
       p.hands_left = 4;
     });
 
-    client.score = new InsaneInt(0, 0, 0);
-    others.forEach((p) => {
+    // Some reason score is not reset
+    client.lobby.players.forEach((p) => {
       p.score = new InsaneInt(0, 0, 0);
-    })
-    
+      broadcastGameStateUpdate(p, {
+        score: p.score.toString(),
+      });
+    });
+
     client.lobby.broadcastAction({ action: "startBlind" });
   }
 };
@@ -207,7 +210,7 @@ const resolvePvPRound = (lobby: Lobby) => {
 
 // Action handler for playing a hand
 const playHandAction = (
-  { hands_left, score, target_score}: ActionHandlerArgs<ActionPlayHand>,
+  { hands_left, score, target_score }: ActionHandlerArgs<ActionPlayHand>,
   client: Client
 ) => {
   const [lobby, others] = getOtherPlayers(client);
@@ -228,7 +231,9 @@ const playHandAction = (
   if (!allPlayersHandsPlayed(lobby)) return;
 
   if (lobby.gameMode === "coopSurvival") {
-    const bossTargetScore = InsaneInt.fromString(target_score?.toString() || "0");
+    const bossTargetScore = InsaneInt.fromString(
+      target_score?.toString() || "0"
+    );
     console.log("ending coop survival round");
 
     // Sum all player scores
