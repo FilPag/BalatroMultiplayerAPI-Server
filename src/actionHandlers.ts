@@ -1,6 +1,6 @@
 import type Client from "./Client.js";
 import { InsaneInt } from "./InsaneInt.js";
-import Lobby, { getHostID, getOtherPlayers} from "./Lobby.js";
+import Lobby, { getHostID, getOtherPlayers } from "./Lobby.js";
 import type {
   ActionCreateLobby,
   ActionEatPizza,
@@ -230,12 +230,13 @@ const playHandAction = (
     return;
   }
 
-  client.score = InsaneInt.fromString(String(score));
+  const scoreDiff = InsaneInt.fromString(String(score));
+  client.score = client.score.add(scoreDiff);
   client.hands_left =
     typeof hands_left === "number" ? hands_left : Number(hands_left);
 
   broadcastGameStateUpdate(client, {
-    score: client.score.toString(),
+    score: scoreDiff.toString(),
     hands_left: client.hands_left,
   });
 
@@ -267,9 +268,9 @@ const playHandAction = (
           broadcastGameStateUpdate(p, {
             score: p.score.toString(),
           })
-          p.loseLife(true);
-          p.sendAction({ action: "endPvP", lost: true });
         });
+        client.lobby?.loseSharedLives();
+        client.lobby?.broadcastAction({ action: "endPvP", lost: true, });
       }
     }
     // If boss defeated, do nothing (could add win logic here if needed)
@@ -302,8 +303,13 @@ const failRoundAction = (client: Client) => {
   const [lobby, enemies] = getOtherPlayers(client);
   if (!lobby) return;
 
+  // Handle death on round loss based on lobby options and game mode
   if (lobby.options.death_on_round_loss) {
-    client.loseLife();
+    if (lobby.gameMode === "coopSurvival") {
+      lobby.loseSharedLives();
+    } else {
+      client.loseLife();
+    }
   }
 
   if (client.lives === 0) {
@@ -333,6 +339,8 @@ const failRoundAction = (client: Client) => {
           }
         });
       }
+    } else if (lobby.gameMode == "coopSurvival") {
+      lobby.broadcastAction({ action: "loseGame" })
     } else {
       // Elimination: if only one left, they win
       const alive = lobby.players.filter((p) => p.lives > 0);
