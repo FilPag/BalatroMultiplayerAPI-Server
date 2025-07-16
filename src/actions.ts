@@ -4,6 +4,7 @@ import { LobbyOptions } from "./Lobby.js";
 // Server to Client
 type StateActionData = Partial<Omit<GameStateData, 'score' | 'highest_score' > & { score: string; highest_score: string}>
 export type ActionConnected = { action: 'connected' }
+export type ActionInvalidLobby = { action: 'invalidLobby' }
 export type ActionError = { action: 'error'; message: string }
 export type ActionJoinedLobby = { action: 'joinedLobby'; code: string; }
 export type ActionLobbyInfo = {
@@ -32,69 +33,91 @@ export type ActionGameInfo = {
 }
 
 // Generic game state update action - can update any combination of game state fields
-export type ActionGameStateUpdate = { 
-  action: 'gameStateUpdate'
-  id: string
-  updates: StateActionData
-}
-export type ActionEndPvP = { action: 'endPvP'; lost: boolean }
-export type ActionLobbyOptions = { action: 'lobbyOptions', options: LobbyOptions}
-export type ActionRequestVersion = { action: 'version' }
-export type ActionEnemyLocation = { action: 'enemyLocation'; playerId: string; location: string }
-export type ActionSendPhantom = { action: 'sendPhantom', key: string }
-export type ActionRemovePhantom = { action: 'removePhantom', key: string }
-export type ActionSpeedrun = { action: 'speedrun' }
-export type ActionAsteroid = { action: 'asteroid' }
-export type ActionLetsGoGamblingNemesis = { action: 'letsGoGamblingNemesis' }
-export type ActionEatPizza = { action: 'eatPizza', whole: boolean }
-export type ActionSoldJoker = { action: 'soldJoker' }
-export type ActionSpentLastShop = { action: 'spentLastShop', amount: number }
-export type ActionMagnet = { action: 'magnet' }
-export type ActionMagnetResponse = { action: 'magnetResponse', key: string }
-export type ActionGetEndGameJokersRequest = { action: 'getEndGameJokers' }
-export type ActionReceiveEndGameJokersRequest = { action: 'receiveEndGameJokers', keys: string }
-export type ActionGetNemesisDeckRequest = { action: 'getNemesisDeck' }
-export type ActionReceiveNemesisDeckRequest = { action: 'receiveNemesisDeck', cards: string }
-export type ActionStartAnteTimer = { action: 'startAnteTimer', time: number }
-export type ActionPauseAnteTimer = { action: 'pauseAnteTimer', time: number }
-export type ActionSetBossBlind = { action: 'setBossBlind'; bossKey: string; targetScore?: string};
+export type ActionGameStateUpdate = {
+  action: "gameStateUpdate";
+  id: string;
+  updates: StateActionData;
+};
+export type ActionReceivePlayerDeck = {
+  action: "receivePlayerDeck";
+  playerId: string;
+  cards: string;
+};
+export type ActionEndPvP = { action: "endPvP"; lost: boolean };
+export type ActionLobbyOptions = {
+  action: "lobbyOptions";
+  options: LobbyOptions;
+};
+export type ActionRequestVersion = { action: "version" };
+export type ActionEnemyLocation = {
+  action: "enemyLocation";
+  playerId: string;
+  location: string;
+};
+export type ActionSendPhantom = { action: "sendPhantom"; key: string };
+export type ActionRemovePhantom = { action: "removePhantom"; key: string };
+export type ActionSpeedrun = { action: "speedrun" };
+export type ActionAsteroid = { action: "asteroid" };
+export type ActionLetsGoGamblingNemesis = { action: "letsGoGamblingNemesis" };
+export type ActionEatPizza = { action: "eatPizza"; whole: boolean };
+export type ActionSoldJoker = { action: "soldJoker" };
+export type ActionSpentLastShop = { action: "spentLastShop"; amount: number };
+export type ActionMagnet = { action: "magnet" };
+export type ActionMagnetResponse = { action: "magnetResponse"; key: string };
+export type ActionGetEndGameJokersRequest = { action: "getEndGameJokers" };
+export type ActionReceiveEndGameJokersRequest = {
+  action: "receiveEndGameJokers";
+  keys: string;
+};
+export type ActionStartAnteTimer = { action: "startAnteTimer"; time: number };
+export type ActionPauseAnteTimer = { action: "pauseAnteTimer"; time: number };
+export type ActionSetBossBlind = {
+  action: "setBossBlind";
+  bossKey: string;
+  targetScore?: string;
+};
 export type ActionServerToClient =
-	| ActionConnected
-	| ActionError
-	| ActionJoinedLobby
-	| ActionLobbyInfo
-	| ActionStopGame
-	| ActionStartGame
-	| ActionStartBlind
-	| ActionWinGame
-	| ActionLoseGame
-	| ActionGameInfo
-	| ActionGameStateUpdate
-	| ActionEndPvP
-	| ActionLobbyOptions
-	| ActionRequestVersion
-	| ActionUtility
-	| ActionEnemyLocation
-	| ActionSendPhantom
-	| ActionRemovePhantom
-	| ActionSpeedrun
-	| ActionAsteroid
-	| ActionLetsGoGamblingNemesis
-	| ActionEatPizza
-	| ActionSoldJoker
-	| ActionSpentLastShop
-	| ActionMagnet
-	| ActionMagnetResponse
-	| ActionGetEndGameJokersRequest
-	| ActionReceiveEndGameJokersRequest
-	| ActionGetNemesisDeckRequest
-	| ActionReceiveNemesisDeckRequest
-	| ActionStartAnteTimer
-	| ActionPauseAnteTimer
-	| ActionSetBossBlind
+  | ActionConnected
+  | ActionInvalidLobby
+  | ActionError
+  | ActionJoinedLobby
+  | ActionLobbyInfo
+  | ActionStopGame
+  | ActionStartGame
+  | ActionStartBlind
+  | ActionWinGame
+  | ActionLoseGame
+  | ActionGameInfo
+  | ActionGameStateUpdate
+  | ActionEndPvP
+  | ActionLobbyOptions
+  | ActionRequestVersion
+  | ActionUtility
+  | ActionEnemyLocation
+  | ActionSendPhantom
+  | ActionRemovePhantom
+  | ActionSpeedrun
+  | ActionAsteroid
+  | ActionLetsGoGamblingNemesis
+  | ActionEatPizza
+  | ActionSoldJoker
+  | ActionSpentLastShop
+  | ActionMagnet
+  | ActionMagnetResponse
+  | ActionGetEndGameJokersRequest
+  | ActionReceiveEndGameJokersRequest
+  | ActionReceivePlayerDeck
+  | ActionStartAnteTimer
+  | ActionPauseAnteTimer
+  | ActionSetBossBlind;
 
 // Client to Server
-export type ActionUsername = { action: 'username'; username: string; colour: string; modHash: string }
+export type ActionUsername = {
+  action: "username";
+  username: string;
+  colour: string;
+  modHash: string;
+};
 export type ActionCreateLobby = {
   action: "createLobby";
   ruleset: string;
@@ -149,11 +172,8 @@ export type ActionReceiveEndGameJokersResponse = {
   action: "receiveEndGameJokers";
   keys: string;
 };
-export type ActionGetNemesisDeckResponse = { action: "getNemesisDeck" };
-export type ActionReceiveNemesisDeckResponse = {
-  action: "receiveNemesisDeck";
-  cards: string;
-};
+export type ActionSendPlayerDeck = { action: "sendPlayerDeck"; cards: string };
+
 export type ActionStartAnteTimerRequest = {
   action: "startAnteTimer";
   time: number;
@@ -197,8 +217,7 @@ export type ActionClientToServer =
   | ActionMagnetResponseRequest
   | ActionGetEndGameJokersResponse
   | ActionReceiveEndGameJokersResponse
-  | ActionGetNemesisDeckResponse
-  | ActionReceiveNemesisDeckResponse
+  | ActionSendPlayerDeck
   | ActionStartAnteTimerRequest
   | ActionPauseAnteTimerRequest
   | ActionFailTimer
