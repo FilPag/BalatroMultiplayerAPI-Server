@@ -11,7 +11,6 @@ import type {
   ActionMagnetResponse,
   ActionPlayHand,
   ActionReceiveEndGameJokersRequest,
-  ActionReceiveNemesisDeckRequest,
   ActionRemovePhantom,
   ActionSendPhantom,
   ActionSetAnte,
@@ -26,6 +25,8 @@ import type {
   ActionVersion,
   ActionSetBossBlind,
   ActionLobbyOptions,
+  ActionSendPlayerDeck,
+  ActionReceivePlayerDeck,
 } from "./actions.js";
 import { generateSeed } from "./utils.js";
 
@@ -53,8 +54,7 @@ const joinLobbyAction = (
   const newLobby = Lobby.get(code);
   if (!newLobby) {
     client.sendAction({
-      action: "error",
-      message: "Lobby does not exist.",
+      action: "invalidLobby",
     });
     return;
   }
@@ -225,7 +225,7 @@ const playHandAction = (
     typeof hands_left === "number" ? hands_left : Number(hands_left);
 
   broadcastGameStateUpdate(client, {
-    score: scoreDiff.toString(),
+    score: client.score.toString(),
     hands_left: client.hands_left,
   });
 
@@ -540,22 +540,14 @@ const receiveEndGameJokersAction = (
   });
 };
 
-const getNemesisDeckAction = (client: Client) => {
-  const [lobby, enemies] = getOtherPlayers(client);
-  if (!lobby) return;
-  enemies.forEach((enemy) => {
-    enemy.sendAction({ action: "getNemesisDeck" });
-  });
-};
-
-const receiveNemesisDeckAction = (
-  { cards }: ActionHandlerArgs<ActionReceiveNemesisDeckRequest>,
+const sendPlayerDeckAction = (
+  {cards} : ActionHandlerArgs<ActionSendPlayerDeck>,
   client: Client
 ) => {
   const [lobby, enemies] = getOtherPlayers(client);
   if (!lobby) return;
   enemies.forEach((enemy) => {
-    enemy.sendAction({ action: "receiveNemesisDeck", cards });
+    enemy.sendAction({ action: "receivePlayerDeck", playerId: client.id, cards });
   });
 };
 
@@ -655,8 +647,7 @@ export const actionHandlers = {
   magnetResponse: magnetResponseAction,
   getEndGameJokers: getEndGameJokersAction,
   receiveEndGameJokers: receiveEndGameJokersAction,
-  getNemesisDeck: getNemesisDeckAction,
-  receiveNemesisDeck: receiveNemesisDeckAction,
+  sendPlayerDeck: sendPlayerDeckAction,
   startAnteTimer: startAnteTimerAction,
   pauseAnteTimer: pauseAnteTimerAction,
   failTimer: failTimerAction,
