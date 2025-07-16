@@ -11,7 +11,6 @@ import type {
   ActionMagnetResponse,
   ActionPlayHand,
   ActionReceiveEndGameJokersRequest,
-  ActionReceiveNemesisDeckRequest,
   ActionRemovePhantom,
   ActionSendPhantom,
   ActionSetAnte,
@@ -27,6 +26,7 @@ import type {
   ActionSetBossBlind,
   ActionLobbyOptions,
   ActionReceiveNemesisStatsRequest,
+  ActionSendPlayerDeck,
 } from "./actions.js";
 import { generateSeed } from "./utils.js";
 
@@ -54,8 +54,7 @@ const joinLobbyAction = (
   const newLobby = Lobby.get(code);
   if (!newLobby) {
     client.sendAction({
-      action: "error",
-      message: "Lobby does not exist.",
+      action: "invalidLobby",
     });
     return;
   }
@@ -69,16 +68,6 @@ const leaveLobbyAction = (client: Client) => {
 const lobbyInfoAction = (client: Client) => {
   client.lobby?.broadcastLobbyInfo();
 };
-
-const readyLobbyAction = (client: Client) => {
-	client.isReadyLobby = true;
-	client.lobby?.broadcastLobbyInfo();
-}
-
-const unreadyLobbyAction = (client: Client) => {
-	client.isReadyLobby = false;
-	client.lobby?.broadcastLobbyInfo();
-}
 
 const keepAliveAction = (client: Client) => {
   // Send an ack back to the received keepAlive
@@ -236,7 +225,7 @@ const playHandAction = (
     typeof hands_left === "number" ? hands_left : Number(hands_left);
 
   broadcastGameStateUpdate(client, {
-    score: scoreDiff.toString(),
+    score: client.score.toString(),
     hands_left: client.hands_left,
   });
 
@@ -551,22 +540,14 @@ const receiveEndGameJokersAction = (
   });
 };
 
-const getNemesisDeckAction = (client: Client) => {
-  const [lobby, enemies] = getOtherPlayers(client);
-  if (!lobby) return;
-  enemies.forEach((enemy) => {
-    enemy.sendAction({ action: "getNemesisDeck" });
-  });
-};
-
-const receiveNemesisDeckAction = (
-  { cards }: ActionHandlerArgs<ActionReceiveNemesisDeckRequest>,
+const sendPlayerDeckAction = (
+  {cards} : ActionHandlerArgs<ActionSendPlayerDeck>,
   client: Client
 ) => {
   const [lobby, enemies] = getOtherPlayers(client);
   if (!lobby) return;
   enemies.forEach((enemy) => {
-    enemy.sendAction({ action: "receiveNemesisDeck", cards });
+    enemy.sendAction({ action: "receivePlayerDeck", playerId: client.id, cards });
   });
 };
 
@@ -602,7 +583,7 @@ const startAnteTimerAction = (
     enemy.sendAction({ action: "startAnteTimer", time });
   });
 };
-}
+
 const pauseAnteTimerAction = (
   { time }: ActionHandlerArgs<ActionPauseAnteTimer>,
   client: Client
@@ -657,46 +638,43 @@ const setBossBlindAction = (
 };
 
 export const actionHandlers = {
-	username: usernameAction,
-	createLobby: createLobbyAction,
-	joinLobby: joinLobbyAction,
-	lobbyInfo: lobbyInfoAction,
-	leaveLobby: leaveLobbyAction,
-	readyLobby: readyLobbyAction,
-	unreadyLobby: unreadyLobbyAction,
-	keepAlive: keepAliveAction,
-	startGame: startGameAction,
-	readyBlind: readyBlindAction,
-	unreadyBlind: unreadyBlindAction,
-	playHand: playHandAction,
-	stopGame: stopGameAction,
-	gameInfo: gameInfoAction,
-	lobbyOptions: lobbyOptionsAction,
-	failRound: failRoundAction,
-	setAnte: setAnteAction,
-	version: versionAction,
-	setLocation: setLocationAction,
-	newRound: newRoundAction,
-	setFurthestBlind: setFurthestBlindAction,
-	skip: skipAction,
-	sendPhantom: sendPhantomAction,
-	removePhantom: removePhantomAction,
-	asteroid: asteroidAction,
-	letsGoGamblingNemesis: letsGoGamblingNemesisAction,
-	eatPizza: eatPizzaAction,
-	soldJoker: soldJokerAction,
-	spentLastShop: spentLastShopAction,
-	magnet: magnetAction,
-	magnetResponse: magnetResponseAction,
-	getEndGameJokers: getEndGameJokersAction,
-	receiveEndGameJokers: receiveEndGameJokersAction,
-	getNemesisDeck: getNemesisDeckAction,
-	receiveNemesisDeck: receiveNemesisDeckAction,
+  username: usernameAction,
+  createLobby: createLobbyAction,
+  joinLobby: joinLobbyAction,
+  lobbyInfo: lobbyInfoAction,
+  leaveLobby: leaveLobbyAction,
+  keepAlive: keepAliveAction,
+  startGame: startGameAction,
+  readyBlind: readyBlindAction,
+  unreadyBlind: unreadyBlindAction,
+  playHand: playHandAction,
+  stopGame: stopGameAction,
+  gameInfo: gameInfoAction,
+  lobbyOptions: lobbyOptionsAction,
+  failRound: failRoundAction,
+  setAnte: setAnteAction,
+  version: versionAction,
+  setLocation: setLocationAction,
+  newRound: newRoundAction,
+  setFurthestBlind: setFurthestBlindAction,
+  skip: skipAction,
+  sendPhantom: sendPhantomAction,
+  removePhantom: removePhantomAction,
+  asteroid: asteroidAction,
+  letsGoGamblingNemesis: letsGoGamblingNemesisAction,
+  eatPizza: eatPizzaAction,
+  soldJoker: soldJokerAction,
+  spentLastShop: spentLastShopAction,
+  magnet: magnetAction,
+  magnetResponse: magnetResponseAction,
+  getEndGameJokers: getEndGameJokersAction,
+  receiveEndGameJokers: receiveEndGameJokersAction,
+  sendPlayerDeck: sendPlayerDeckAction,
+  startAnteTimer: startAnteTimerAction,
+  pauseAnteTimer: pauseAnteTimerAction,
+  failTimer: failTimerAction,
+  syncClient: syncClientAction,
 	endGameStatsRequested: requestNemesisStatsActionHandler,
 	nemesisEndGameStats: receiveNemesisStatsActionHandler,
-	startAnteTimer: startAnteTimerAction,
-	pauseAnteTimer: pauseAnteTimerAction,
-	failTimer: failTimerAction,
-	syncClient: syncClientAction,
   setBossBlind: setBossBlindAction,
 } satisfies Partial<ActionHandlers>;

@@ -13,7 +13,6 @@ import type {
 	ActionMagnetResponse,
 	ActionPlayHand,
 	ActionReceiveEndGameJokersRequest,
-	ActionReceiveNemesisDeckRequest,
 	ActionRemovePhantom,
 	ActionSendPhantom,
 	ActionServerToClient,
@@ -30,8 +29,8 @@ import type {
 	ActionReceiveNemesisStatsRequest,
 	ActionSetBossBlind,
 	ActionSetFurthestBlind,
+  ActionSendPlayerDeck,
 } from './actions.js'
-import { InsaneInt } from './InsaneInt.js'
 
 const PORT = 8788
 
@@ -237,12 +236,9 @@ const server = createServer((socket) => {
               client
             );
             break;
-          case "getNemesisDeck":
-            actionHandlers.getNemesisDeck(client);
-            break;
-          case "receiveNemesisDeck":
-            actionHandlers.receiveNemesisDeck(
-              actionArgs as ActionHandlerArgs<ActionReceiveNemesisDeckRequest>,
+          case "sendPlayerDeck":
+            actionHandlers.sendPlayerDeck(
+              actionArgs as ActionHandlerArgs<ActionSendPlayerDeck>,
               client
             );
             break;

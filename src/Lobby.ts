@@ -146,6 +146,11 @@ class Lobby {
       });
       return;
     }
+
+    if (this.players.some(p => p.id === client.id)) {
+      return
+    }
+
     this.players.push(client);
     client.setLobby(this);
     client.sendAction({
