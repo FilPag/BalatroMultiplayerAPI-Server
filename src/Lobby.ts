@@ -67,11 +67,16 @@ class Lobby {
   players: Client[];
   hostIndex: number;
   gameMode: GameMode;
-  // biome-ignore lint/suspicious/noExplicitAny: 
+  // biome-ignore lint/suspicious/noExplicitAny:
   options: LobbyOptions;
   maxPlayers: number;
 
-  constructor(host: Client, ruleset: string, gameMode: GameMode = "attrition", maxPlayers?: number) {
+  constructor(
+    host: Client,
+    ruleset: string,
+    gameMode: GameMode = "attrition",
+    maxPlayers?: number
+  ) {
     do {
       this.code = generateUniqueLobbyCode();
     } while (Lobbies.get(this.code));
@@ -97,15 +102,15 @@ class Lobby {
     }
 
     // Set maxPlayers based on gamemode
-    if (typeof maxPlayers === 'number') {
+    if (typeof maxPlayers === "number") {
       this.maxPlayers = maxPlayers;
-    } else if (gameMode === 'coopSurvival') {
+    } else if (gameMode === "coopSurvival") {
       this.maxPlayers = 8; // Allow up to 8 in coop
     } else {
       this.maxPlayers = 2; // All other modes limited to 2
     }
 
-    host.setLobby(this);
+    host.lobby = this;
     host.sendAction({
       action: "joinedLobby",
       code: this.code,
@@ -118,7 +123,7 @@ class Lobby {
   };
 
   leave = (client: Client) => {
-    const idx = this.players.findIndex(p => p.id === client.id);
+    const idx = this.players.findIndex((p) => p.id === client.id);
     if (idx !== -1) {
       this.players.splice(idx, 1);
       if (this.hostIndex === idx) {
@@ -126,7 +131,7 @@ class Lobby {
         this.hostIndex = this.players.length > 0 ? 0 : -1;
       }
     }
-    client.setLobby(null);
+    client.lobby = null;
     if (this.players.length === 0) {
       Lobbies.delete(this.code);
     } else {
@@ -145,12 +150,12 @@ class Lobby {
       return;
     }
 
-    if (this.players.some(p => p.id === client.id)) {
-      return
+    if (this.players.some((p) => p.id === client.id)) {
+      return;
     }
 
     this.players.push(client);
-    client.setLobby(this);
+    client.lobby = this;
     client.sendAction({
       action: "joinedLobby",
       code: this.code,
@@ -160,7 +165,7 @@ class Lobby {
   };
 
   broadcastAction = (action: ActionServerToClient) => {
-    this.players.forEach(player => player.sendAction(action));
+    this.players.forEach((player) => player.sendAction(action));
   };
 
   broadcastLobbyInfo = () => {
@@ -172,17 +177,17 @@ class Lobby {
         host: this.players[this.hostIndex]?.lobbyData?.username || "",
         isHost: idx === this.hostIndex,
         local_id: player.id,
-        players: this.players.map(p => ({
+        players: this.players.map((p) => ({
           id: p.id,
-          ...p.lobbyData
-        }))
+          ...p.lobbyData,
+        })),
       };
       player.sendAction(action);
     });
   };
 
   sendGameInfo = (client: Client) => {
-    if (!this.players.some(p => p === client)) {
+    if (!this.players.some((p) => p === client)) {
       return client.sendAction({
         action: "error",
         message: "Client not in Lobby",
@@ -190,40 +195,47 @@ class Lobby {
     }
     client.sendAction({
       action: "gameInfo",
-      ...GameModes[this.gameMode].getBlindFromAnte(client.ante, this.options),
+      ...GameModes[this.gameMode].getBlindFromAnte(client.gameState.ante, this.options),
     });
   };
 
   setOptions = (options: LobbyOptions) => {
     this.options = options;
-    this.players.forEach(player => player.sendAction({ action: "lobbyOptions", options: this.options }));
+    this.players.forEach((player) =>
+      player.sendAction({ action: "lobbyOptions", options: this.options })
+    );
   };
 
   resetPlayers = () => {
-    this.players.forEach(player => {
+    this.players.forEach((player) => {
       player.lobbyData.isReady = false;
-      player.resetBlocker();
-      player.location = "Blind Select";
-      player.furthest_blind = 0;
-      player.skips = 0;
+
+      player.setGameStateValues({
+        furthest_blind: 0,
+        lives_blocker: false,
+        location: "Blind Select",
+        skips: 0,
+      });
     });
-  }
+  };
 
   getHost = () => {
     return this.players[this.hostIndex];
   };
 
-  loseSharedLives = () => {
-    this.players.forEach(player => {
-      player.loseLife(true);
-    })
-  }
+  loseSharedLives = (livesLost: number = 1) => {
+    for (const player of this.players) {
+      player.loseLives(livesLost);
+    }
+  };
 
   setPlayersLives = (lives: number) => {
-    this.players.forEach(player => {
-      player.lives = lives;
+    this.players.forEach((player) => {
+      player.setGameStateValues({
+        lives: lives,
+      });
     });
-  }
+  };
 }
 
 export default Lobby;

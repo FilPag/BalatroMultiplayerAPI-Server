@@ -2,12 +2,7 @@ import { GameStateData, LobbyData } from "./Client.js";
 import { LobbyOptions } from "./Lobby.js";
 
 // Server to Client
-type StateActionData = Partial<
-  Omit<GameStateData, "score" | "highest_score"> & {
-    score: string;
-    highest_score: string;
-  }
->;
+type StateActionData = Partial<GameStateData>;
 export type ActionConnected = { action: "connected" };
 export type ActionInvalidLobby = { action: "invalidLobby" };
 export type ActionError = { action: "error"; message: string };

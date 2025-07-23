@@ -35,9 +35,9 @@ const usernameAction = (
   { username, colour, modHash }: ActionHandlerArgs<ActionUsername>,
   client: Client
 ) => {
-  client.setUsername(username);
-  client.setColour(colour);
-  client.setModHash(modHash);
+  client.lobbyData.username = username;
+  client.lobbyData.colour = colour;
+  client.lobbyData.modHash = modHash;
 };
 
 const createLobbyAction = (
@@ -46,6 +46,49 @@ const createLobbyAction = (
 ) => {
   /** Also sets the client lobby to this newly created one */
   new Lobby(client, ruleset, gameMode);
+};
+
+const loseGameAction = (client: Client) => {
+  if (!client.lobby) return;
+
+  if (client.lobby.gameMode === "coopSurvival") {
+    client.sendAction({ action: "loseGame" });
+    return;
+  }
+
+  const [lobby, others] = getOtherPlayers(client);
+
+  if (!lobby) return;
+
+  if (lobby.gameMode === "survival") {
+    const players = lobby.players;
+    const alive = players.filter((p) => p.gameState.lives > 0);
+
+    if (alive.length === 0) {
+      // All players are dead, determine winners by furthest_blind
+      const maxBlind = Math.max(
+        ...players.map((p) => p.gameState.furthest_blind)
+      );
+      const winners = players.filter(
+        (p) => p.gameState.furthest_blind === maxBlind
+      );
+
+      players.forEach((p) => {
+        if (winners.includes(p)) {
+          p.sendAction({ action: "winGame" });
+        } else {
+          p.sendAction({ action: "loseGame" });
+        }
+      });
+      return;
+    }
+  }
+
+  if (others.length === 1) {
+    others[0].sendAction({ action: "winGame" });
+    client.sendAction({ action: "loseGame" });
+    return;
+  }
 };
 
 const joinLobbyAction = (
@@ -60,6 +103,7 @@ const joinLobbyAction = (
     return;
   }
   newLobby.join(client);
+  client.onLoseGame = loseGameAction;
 };
 
 const leaveLobbyAction = (client: Client) => {
@@ -89,21 +133,12 @@ const startGameAction = (client: Client) => {
   // Set all player lives before broadcasting
   lobby.players.forEach((player) => {
     player.resetState();
-    player.lives = lives;
+    player.gameState.lives = lives;
   });
 
   const playerStates = lobby.players.map((player) => ({
     id: player.id,
-    score: player.score.toString(),
-    highest_score: player.highest_score.toString(), // convert to string
-    lives: player.lives,
-    hands_left: player.hands_left,
-    spent_in_shop: player.gameState.spent_in_shop,
-    ante: player.ante,
-    skips: player.skips,
-    furthest_blind: player.furthest_blind,
-    lives_blocker: player.lives_blocker,
-    location: player.location,
+    ...player.gameState,
   }));
 
   // Send initial game state for all players as a batch of gameStateUpdate actions
@@ -116,49 +151,43 @@ const startGameAction = (client: Client) => {
 };
 
 const readyBlindAction = (client: Client) => {
-  client.isReady = true;
-
+  client.lobbyData.isReady = true;
   const [lobby, others] = getOtherPlayers(client);
 
-  if (!client.firstReady && others.every((p) => !p.isReady && !p.firstReady)) {
-    client.firstReady = true;
+  // If this client is the first to ready up, trigger speedrun
+  const isFirstReady =
+    !client.lobbyData.firstReady &&
+    others.every((p) => !p.lobbyData.isReady && !p.lobbyData.firstReady);
+
+  if (isFirstReady) {
+    client.lobbyData.firstReady = true;
     client.sendAction({ action: "speedrun" });
   }
 
-  if (client.lobby && client.lobby.players.every((p) => p.isReady)) {
-    // Reset ready status for next blind
-    client.lobby.players.forEach((p) => (p.isReady = false));
-    // Reset scores and hands left for next blind
-    client.lobby.players.forEach((p) => {
-      p.score = new InsaneInt(0, 0, 0);
-      p.hands_left = 4;
+  // If all players are ready, reset for next blind and start it
+  if (lobby && lobby.players.every((p) => p.lobbyData.isReady)) {
+    lobby.players.forEach((p) => {
+      p.lobbyData.isReady = false;
+      p.setGameStateValues({ score: new InsaneInt(0, 0, 0) });
     });
-
-    // Some reason score is not reset
-    client.lobby.players.forEach((p) => {
-      p.score = new InsaneInt(0, 0, 0);
-      broadcastGameStateUpdate(p, {
-        score: p.score.toString(),
-      });
-    });
-
-    client.lobby.broadcastAction({ action: "startBlind" });
+    lobby.broadcastAction({ action: "startBlind" });
   }
 };
 
 const unreadyBlindAction = (client: Client) => {
-  client.isReady = false;
+  client.lobbyData.isReady = false;
 };
 
 // Helper: check if all players have played their hands
 function allPlayersHandsPlayed(lobby: Lobby): boolean {
-  return lobby.players.every((p) => p.hands_left === 0);
+  return lobby.players.every((p) => p.gameState.hands_left === 0);
 }
 
 const setLobbyReadyAction = (
   { isReady }: ActionHandlerArgs<ActionSetLobbyReady>,
-  client: Client) => {
-  client.isReady = isReady;
+  client: Client
+) => {
+  client.lobbyData.isReady = isReady;
 
   const [lobby, others] = getOtherPlayers(client);
   others.forEach((p) => {
@@ -168,61 +197,47 @@ const setLobbyReadyAction = (
       playerId: client.id,
     });
   });
-}
-
-// Helper: broadcast game state updates efficiently
-function broadcastGameStateUpdate(
-  client: Client,
-  updates: Partial<{
-    lives: number;
-    score: string;
-    highest_score: string;
-    hands_left: number;
-    ante: number;
-    skips: number;
-    furthest_blind: number;
-    lives_blocker: boolean;
-    location: string;
-  }>
-) {
-  if (!client.lobby) return;
-
-  client.lobby.players.forEach((player) => {
-    player.sendAction({
-      action: "gameStateUpdate",
-      id: client.id,
-      updates,
-    });
-  });
-}
+};
 
 // Helper: resolve PvP round
 const resolvePvPRound = (lobby: Lobby) => {
-  let maxScore = lobby.players[0].score;
+  let maxScore = lobby.players[0].gameState.score;
   lobby.players.forEach((p) => {
-    if (p.score.greaterThan(maxScore)) maxScore = p.score;
+    if (p.gameState.score.greaterThan(maxScore)) maxScore = p.gameState.score;
   });
-  const winners = lobby.players.filter((p) => p.score.equalTo(maxScore));
-  const losers = lobby.players.filter((p) => !p.score.equalTo(maxScore));
-
-  if (winners.length < lobby.players.length) {
-    losers.forEach((loser) => {
-      loser.loseLife();
-    });
-    const alive = lobby.players.filter((p) => p.lives > 0);
-    if (alive.length === 1) {
-      alive[0].sendAction({ action: "winGame" });
-      lobby.players.forEach((p) => {
-        if (p !== alive[0]) p.sendAction({ action: "loseGame" });
-      });
-      return;
-    }
-  }
-  lobby.players.forEach((p) => (p.firstReady = false));
-  winners.forEach((winner) =>
-    winner.sendAction({ action: "endPvP", lost: false })
+  const winners = lobby.players.filter((p) =>
+    p.gameState.score.equalTo(maxScore)
   );
-  losers.forEach((loser) => loser.sendAction({ action: "endPvP", lost: true }));
+  const losers = lobby.players.filter(
+    (p) => !p.gameState.score.equalTo(maxScore)
+  );
+
+  losers.forEach((loser) => {
+    loser.loseLives(1);
+  });
+
+  lobby.players.forEach((p) => (p.lobbyData.firstReady = false));
+
+  lobby.players.forEach((p) => {
+    p.sendAction({ action: "endPvP", lost: losers.includes(p) });
+  });
+};
+
+
+const resolveCoopSurvivalRound = (target_score: string | undefined, lobby: Lobby) => {
+  const bossTargetScore = InsaneInt.fromString(target_score?.toString() || "0");
+  console.log("ending coop survival round");
+
+  // Sum all player scores
+  const totalScore = lobby.players.reduce(
+    (sum, p) => sum.add(p.gameState.score),
+    new InsaneInt(0, 0, 0)
+  );
+
+  if (bossTargetScore.greaterThan(totalScore)) {
+    lobby?.loseSharedLives();
+    lobby?.broadcastAction({ action: "endPvP", lost: true });
+  }
 };
 
 // Action handler for playing a hand
@@ -237,49 +252,15 @@ const playHandAction = (
   }
 
   const scoreDiff = InsaneInt.fromString(String(score));
-  client.score = client.score.add(scoreDiff);
-  client.hands_left =
-    typeof hands_left === "number" ? hands_left : Number(hands_left);
-
-  broadcastGameStateUpdate(client, {
-    score: client.score.toString(),
-    hands_left: client.hands_left,
+  client.setGameStateValues({
+    score: client.gameState.score.add(scoreDiff),
+    hands_left: hands_left,
   });
 
   if (!allPlayersHandsPlayed(lobby)) return;
 
   if (lobby.gameMode === "coopSurvival") {
-    const bossTargetScore = InsaneInt.fromString(
-      target_score?.toString() || "0"
-    );
-    console.log("ending coop survival round");
-
-    // Sum all player scores
-    const totalScore = lobby.players.reduce(
-      (sum, p) => sum.add(p.score),
-      new InsaneInt(0, 0, 0)
-    );
-
-    if (bossTargetScore.greaterThan(totalScore)) {
-      // Boss not defeated
-      if (client.lives === 1) {
-        // All players lose the game
-        lobby.players.forEach((p) => {
-          p.sendAction({ action: "loseGame" });
-        });
-      } else {
-        // Players lose a life and reset score
-        lobby.players.forEach((p) => {
-          p.score = new InsaneInt(0, 0, 0);
-          broadcastGameStateUpdate(p, {
-            score: p.score.toString(),
-          })
-        });
-        client.lobby?.loseSharedLives();
-        client.lobby?.broadcastAction({ action: "endPvP", lost: true, });
-      }
-    }
-    // If boss defeated, do nothing (could add win logic here if needed)
+    resolveCoopSurvivalRound(target_score, lobby);
   } else {
     resolvePvPRound(lobby);
   }
@@ -291,11 +272,6 @@ const stopGameAction = (client: Client) => {
   }
   client.lobby.broadcastAction({ action: "stopGame" });
   client.lobby.resetPlayers();
-};
-
-// Deprecated
-const gameInfoAction = (client: Client) => {
-  client.lobby?.sendGameInfo(client);
 };
 
 const lobbyOptionsAction = (
@@ -312,50 +288,9 @@ const failRoundAction = (client: Client) => {
   // Handle death on round loss based on lobby options and game mode
   if (lobby.options.death_on_round_loss) {
     if (lobby.gameMode === "coopSurvival") {
-      lobby.loseSharedLives();
+      lobby.loseSharedLives(1);
     } else {
-      client.loseLife();
-    }
-  }
-
-  if (client.lives === 0) {
-    if (lobby.gameMode === "survival") {
-      // Survival: check if all are dead or who got furthest
-      const alive = lobby.players.filter((p) => p.lives > 0);
-      if (alive.length === 0) {
-        // All dead, check furthestBlind for all
-        const maxBlind = Math.max(
-          ...lobby.players.map((p) => p.furthest_blind)
-        );
-        const winners = lobby.players.filter(
-          (p) => p.furthest_blind === maxBlind
-        );
-        winners.forEach((w) => w.sendAction({ action: "winGame" }));
-        lobby.players.forEach((p) => {
-          if (!winners.includes(p)) p.sendAction({ action: "loseGame" });
-        });
-      } else {
-        // Some alive, check if any alive have higher furthestBlind
-        const maxBlind = Math.max(...alive.map((p) => p.furthest_blind));
-        alive.forEach((p) => {
-          if (p.furthest_blind === maxBlind) {
-            p.sendAction({ action: "winGame" });
-          } else {
-            p.sendAction({ action: "loseGame" });
-          }
-        });
-      }
-    } else if (lobby.gameMode == "coopSurvival") {
-      lobby.broadcastAction({ action: "loseGame" })
-    } else {
-      // Elimination: if only one left, they win
-      const alive = lobby.players.filter((p) => p.lives > 0);
-      if (alive.length === 1) {
-        alive[0].sendAction({ action: "winGame" });
-        lobby.players.forEach((p) => {
-          if (p !== alive[0]) p.sendAction({ action: "loseGame" });
-        });
-      }
+      client.loseLives(1);
     }
   }
 };
@@ -364,10 +299,7 @@ const setAnteAction = (
   { ante }: ActionHandlerArgs<ActionSetAnte>,
   client: Client
 ) => {
-  client.lobby?.players.forEach((p) => {
-    p.score = new InsaneInt(0, 0, 0);
-  })
-  client.ante = ante;
+  client.gameState.ante = ante;
 };
 
 // TODO: Fix this
@@ -408,47 +340,34 @@ const setLocationAction = (
   { location }: ActionHandlerArgs<ActionSetLocation>,
   client: Client
 ) => {
-  client.setLocation(location);
+  client.setGameStateValues({
+    location,
+  });
 };
 
 const newRoundAction = (client: Client) => {
-  client.resetBlocker();
-  client.score = new InsaneInt(0, 0, 0);
+  client.setGameStateValues({
+    score: new InsaneInt(0, 0, 0),
+    lives_blocker: false,
+  });
 };
 
 const setFurthestBlindAction = (
   { furthest_blind }: ActionHandlerArgs<ActionSetFurthestBlind>,
   client: Client
 ) => {
-  const [lobby, enemies] = getOtherPlayers(client);
-  client.furthest_blind = furthest_blind;
-  if (!lobby) return;
-
-  if (lobby.gameMode === "survival") {
-    const allDead = lobby.players.every((p) => p.lives === 0);
-    if (allDead) {
-      const maxBlind = Math.max(...lobby.players.map((p) => p.furthest_blind));
-      const winners = lobby.players.filter(
-        (p) => p.furthest_blind === maxBlind
-      );
-      winners.forEach((w) => w.sendAction({ action: "winGame" }));
-      lobby.players.forEach((p) => {
-        if (!winners.includes(p)) p.sendAction({ action: "loseGame" });
-      });
-    }
-  }
+  client.setGameStateValues({
+    furthest_blind: furthest_blind,
+  });
 };
 
 const skipAction = (
   { skips }: ActionHandlerArgs<ActionSkip>,
   client: Client
 ) => {
-  const [lobby, enemies] = getOtherPlayers(client);
-  client.setSkips(skips);
-  if (!lobby) return;
-
-  // Broadcast just the skips change
-  broadcastGameStateUpdate(client, { skips });
+  client.setGameStateValues({
+    skips: skips,
+  });
 };
 
 const sendPhantomAction = (
@@ -519,7 +438,7 @@ const spentLastShopAction = (
     action: "spentLastShop",
     playerId: client.id,
     amount,
-  })
+  });
 };
 
 const magnetAction = (client: Client) => {
@@ -561,37 +480,44 @@ const receiveEndGameJokersAction = (
 };
 
 const sendPlayerDeckAction = (
-  {cards} : ActionHandlerArgs<ActionSendPlayerDeck>,
+  { cards }: ActionHandlerArgs<ActionSendPlayerDeck>,
   client: Client
 ) => {
   const [lobby, enemies] = getOtherPlayers(client);
   if (!lobby) return;
   enemies.forEach((enemy) => {
-    enemy.sendAction({ action: "receivePlayerDeck", playerId: client.id, cards });
+    enemy.sendAction({
+      action: "receivePlayerDeck",
+      playerId: client.id,
+      cards,
+    });
   });
 };
 
 const requestNemesisStatsActionHandler = (client: Client) => {
-	const [lobby, others] = getOtherPlayers(client)
-	if (!lobby || !others) return;
-	others.forEach((p) => {
-		p.sendAction({
-			action: "endGameStatsRequested"
-		})
-	})
-}
+  const [lobby, others] = getOtherPlayers(client);
+  if (!lobby || !others) return;
+  others.forEach((p) => {
+    p.sendAction({
+      action: "endGameStatsRequested",
+    });
+  });
+};
 
-const receiveNemesisStatsActionHandler = (stats : ActionHandlerArgs<ActionReceiveNemesisStatsRequest>, client: Client) => {
-	const [lobby, others] = getOtherPlayers(client)
-	if (!lobby || !others) return;
+const receiveNemesisStatsActionHandler = (
+  stats: ActionHandlerArgs<ActionReceiveNemesisStatsRequest>,
+  client: Client
+) => {
+  const [lobby, others] = getOtherPlayers(client);
+  if (!lobby || !others) return;
 
-	others.forEach((p) => {
-		p.sendAction({
-			action: "nemesisEndGameStats",
-			...stats
-		})
-	})
-}
+  others.forEach((p) => {
+    p.sendAction({
+      action: "nemesisEndGameStats",
+      ...stats,
+    });
+  });
+};
 
 const startAnteTimerAction = (
   { time }: ActionHandlerArgs<ActionStartAnteTimer>,
@@ -617,24 +543,15 @@ const pauseAnteTimerAction = (
 
 const failTimerAction = (client: Client) => {
   const lobby = client.lobby;
-  client.loseLife();
   if (!lobby) return;
-  if (client.lives === 0) {
-    const alive = lobby.players.filter((p) => p.lives > 0);
-    if (alive.length === 1) {
-      alive[0].sendAction({ action: "winGame" });
-      lobby.players.forEach((p) => {
-        if (p !== alive[0]) p.sendAction({ action: "loseGame" });
-      });
-    }
-  }
+  client.loseLives(1);
 };
 
 const syncClientAction = (
   { isCached }: ActionHandlerArgs<ActionSyncClient>,
   client: Client
 ) => {
-  client.isCached = isCached;
+  client.lobbyData.isCached = isCached;
 };
 
 const setBossBlindAction = (
@@ -670,7 +587,6 @@ export const actionHandlers = {
   setLobbyReady: setLobbyReadyAction,
   playHand: playHandAction,
   stopGame: stopGameAction,
-  gameInfo: gameInfoAction,
   lobbyOptions: lobbyOptionsAction,
   failRound: failRoundAction,
   setAnte: setAnteAction,
@@ -695,7 +611,7 @@ export const actionHandlers = {
   pauseAnteTimer: pauseAnteTimerAction,
   failTimer: failTimerAction,
   syncClient: syncClientAction,
-	endGameStatsRequested: requestNemesisStatsActionHandler,
-	nemesisEndGameStats: receiveNemesisStatsActionHandler,
+  endGameStatsRequested: requestNemesisStatsActionHandler,
+  nemesisEndGameStats: receiveNemesisStatsActionHandler,
   setBossBlind: setBossBlindAction,
 } satisfies Partial<ActionHandlers>;
