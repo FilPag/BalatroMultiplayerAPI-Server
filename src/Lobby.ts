@@ -211,6 +211,10 @@ class Lobby {
     });
   }
 
+  getHost = () => {
+    return this.players[this.hostIndex];
+  };
+
   loseSharedLives = () => {
     this.players.forEach(player => {
       player.loseLife(true);

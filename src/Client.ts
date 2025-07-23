@@ -105,6 +105,8 @@ class Client {
       lives_blocker: false,
       location: "loc_selecting",
     };
+
+    this.lobbyData.isReady = false;
   };
 
   constructor(socket: Socket) {
