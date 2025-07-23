@@ -28,6 +28,7 @@ import type {
   ActionSendPlayerDeck,
   ActionSetLobbyReady,
   ActionSpentLastShopRequest,
+  ActionClientGameStateUpdate,
 } from "./actions.js";
 import { generateSeed } from "./utils.js";
 
@@ -117,6 +118,15 @@ const lobbyInfoAction = (client: Client) => {
 const keepAliveAction = (client: Client) => {
   // Send an ack back to the received keepAlive
   client.sendAction({ action: "keepAliveAck" });
+};
+
+const updateClientGameStateAction = (
+  { updates }: ActionHandlerArgs<ActionClientGameStateUpdate>,
+  client: Client
+) => {
+  if (updates.score) updates.score = InsaneInt.fromString(updates.score.toString());
+  if (updates.highest_score) updates.highest_score = InsaneInt.fromString(updates.highest_score.toString());
+  client.setGameStateValues(updates);
 };
 
 const startGameAction = (client: Client) => {
@@ -223,8 +233,10 @@ const resolvePvPRound = (lobby: Lobby) => {
   });
 };
 
-
-const resolveCoopSurvivalRound = (target_score: string | undefined, lobby: Lobby) => {
+const resolveCoopSurvivalRound = (
+  target_score: string | undefined,
+  lobby: Lobby
+) => {
   const bossTargetScore = InsaneInt.fromString(target_score?.toString() || "0");
   console.log("ending coop survival round");
 
@@ -614,4 +626,5 @@ export const actionHandlers = {
   endGameStatsRequested: requestNemesisStatsActionHandler,
   nemesisEndGameStats: receiveNemesisStatsActionHandler,
   setBossBlind: setBossBlindAction,
+  updatePlayerGameState: updateClientGameStateAction,
 } satisfies Partial<ActionHandlers>;

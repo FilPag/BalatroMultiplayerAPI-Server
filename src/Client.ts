@@ -49,11 +49,13 @@ class Client {
     isReady: false,
     firstReady: false,
   };
-  gameState: GameStateData;
+
+  gameState!: GameStateData
 
   onLoseGame: (client: Client) => void = () => {}
 
   constructor(socket: Socket) {
+    this.resetState();
     this.socket = socket;
     this.address = socket.address() as Address;
     // Initial state
@@ -72,13 +74,7 @@ class Client {
       skips: 0,
       spent_in_shop: [],
     };
-    this.gameState = new Proxy(initialState, {
-      set: (target, prop: keyof GameStateData, value) => {
-        (target as any)[prop as string] = value;
-        this.broadcastStateUpdate([prop as keyof GameStateData]);
-        return true;
-      },
-    });
+
     this.keepAliveTimer = new KeepAliveTimer(
       () => this.sendAction({ action: "keepAlive" }),
       () => this.closeConnection()
@@ -108,20 +104,21 @@ class Client {
   }
 
   resetState(): void {
-    const state = this.gameState;
-    state.ante = 1;
-    state.discards_left = 2;
-    state.discards_max = 2;
-    state.furthest_blind = 0;
-    state.hands_left = 4;
-    state.hands_max = 4;
-    state.highest_score = new InsaneInt(0, 0, 0);
-    state.lives = 4;
-    state.lives_blocker = false;
-    state.location = "loc_selecting";
-    state.score = new InsaneInt(0, 0, 0);
-    state.skips = 0;
-    state.spent_in_shop = [];
+    this.gameState = {
+    ante: 1,
+    discards_left: 2,
+    discards_max: 2,
+    furthest_blind: 0,
+    hands_left: 4,
+    hands_max: 4,
+    highest_score: new InsaneInt(0, 0, 0),
+    lives: 4,
+    lives_blocker: false,
+    location: "loc_selecting",
+    score: new InsaneInt(0, 0, 0),
+    skips: 0,
+    spent_in_shop: [],
+    }
     this.lobbyData.isReady = false;
   }
 
@@ -146,6 +143,8 @@ class Client {
         this.gameState[key] = updates[key];
       }
     }
+
+    this.broadcastStateUpdate(Object.keys(updates) as (keyof GameStateData)[]);
   }
 
   broadcastStateUpdate(keys: (keyof GameStateData)[]): void {

@@ -209,6 +209,11 @@ export type ActionReceiveNemesisStatsResponse = {
   reroll_cost_total: string;
   vouchers: string;
 };
+export type ActionClientGameStateUpdate = {
+  action: "updatePlayerGameState";
+  updates: Partial<GameStateData>;
+};
+
 export type ActionFailTimer = { action: "failTimer" };
 export type ActionSyncClient = { action: "syncClient"; isCached: boolean };
 export type ActionClientToServer =
@@ -252,7 +257,8 @@ export type ActionClientToServer =
   | ActionPauseAnteTimerRequest
   | ActionFailTimer
   | ActionSyncClient
-  | ActionSetBossBlind;
+  | ActionSetBossBlind
+  | ActionClientGameStateUpdate;
 // Utility actions
 export type ActionKeepAlive = { action: "keepAlive" };
 export type ActionKeepAliveAck = { action: "keepAliveAck" };

@@ -31,6 +31,7 @@ import type {
 	ActionSetFurthestBlind,
   ActionSendPlayerDeck,
   ActionSetLobbyReady,
+  ActionClientGameStateUpdate,
 } from './actions.js'
 
 const PORT = 8788
@@ -77,16 +78,18 @@ const server = createServer((socket) => {
         const message: ActionClientToServer | ActionUtility = JSON.parse(msg);
         const { action, ...actionArgs } = message;
 
-				if (action !== "keepAlive" && action !== "keepAliveAck") {
-					// Use the same color print as the "Sent action" log
-					// Offload logging to the next tick to avoid blocking main loop
-					setImmediate(() => {
-						console.log(
-							`[${new Date().toISOString()}] \x1b[36mReceived action "${action}" from client ${client.id}\x1b[0m`,
-							actionArgs
-						);
-					});
-				}
+        if (action !== "keepAlive" && action !== "keepAliveAck") {
+          // Use the same color print as the "Sent action" log
+          // Offload logging to the next tick to avoid blocking main loop
+          setImmediate(() => {
+            console.log(
+              `[${new Date().toISOString()}] \x1b[36mReceived action "${action}" from client ${
+                client.id
+              }\x1b[0m`,
+              actionArgs
+            );
+          });
+        }
 
         switch (action) {
           case "setLocation":
@@ -129,7 +132,10 @@ const server = createServer((socket) => {
             actionHandlers.startGame(client);
             break;
           case "setLobbyReady":
-            actionHandlers.setLobbyReady(actionArgs as ActionHandlerArgs<ActionSetLobbyReady>, client);
+            actionHandlers.setLobbyReady(
+              actionArgs as ActionHandlerArgs<ActionSetLobbyReady>,
+              client
+            );
             break;
           case "readyBlind":
             actionHandlers.readyBlind(client);
@@ -148,10 +154,6 @@ const server = createServer((socket) => {
             break;
           case "stopGame":
             actionHandlers.stopGame(client);
-            break;
-          // Deprecated
-          case "gameInfo":
-            actionHandlers.gameInfo(client);
             break;
           case "lobbyOptions":
             actionHandlers.lobbyOptions(
@@ -267,15 +269,21 @@ const server = createServer((socket) => {
               client
             );
             break;
-					case "endGameStatsRequested":
-						actionHandlers.endGameStatsRequested(client)
-						break;
-					case "nemesisEndGameStats":
-						actionHandlers.nemesisEndGameStats(
-							actionArgs as ActionHandlerArgs<ActionReceiveNemesisStatsRequest>,
-							client
-						)
-						break;
+          case "endGameStatsRequested":
+            actionHandlers.endGameStatsRequested(client);
+            break;
+          case "nemesisEndGameStats":
+            actionHandlers.nemesisEndGameStats(
+              actionArgs as ActionHandlerArgs<ActionReceiveNemesisStatsRequest>,
+              client
+            );
+            break;
+          case "updatePlayerGameState":
+            actionHandlers.updatePlayerGameState(
+              actionArgs as ActionHandlerArgs<ActionClientGameStateUpdate>,
+              client
+            );
+            break;
         }
       } catch (error) {
         const failedToParseError = "Failed to parse message";
