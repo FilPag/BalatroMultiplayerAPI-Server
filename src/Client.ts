@@ -27,6 +27,7 @@ export type GameStateData = {
   score: InsaneInt
   highest_score: InsaneInt
   hands_left: number
+  spent_in_shop: number[]
   ante: number
   skips: number
   furthest_blind: number
@@ -57,6 +58,7 @@ class Client {
     lives: 4,
     score: new InsaneInt(0, 0, 0),
     highest_score: new InsaneInt(0, 0, 0),
+    spent_in_shop: [],
     hands_left: 4,
     ante: 1,
     skips: 0,
@@ -98,6 +100,7 @@ class Client {
       lives: 4,
       score: new InsaneInt(0, 0, 0),
       highest_score: new InsaneInt(0, 0, 0),
+      spent_in_shop: [],
       hands_left: 4,
       ante: 1,
       skips: 0,

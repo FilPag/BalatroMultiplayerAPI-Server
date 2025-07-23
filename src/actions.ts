@@ -2,35 +2,40 @@ import { GameStateData, LobbyData } from "./Client.js";
 import { LobbyOptions } from "./Lobby.js";
 
 // Server to Client
-type StateActionData = Partial<Omit<GameStateData, 'score' | 'highest_score' > & { score: string; highest_score: string}>
-export type ActionConnected = { action: 'connected' }
-export type ActionInvalidLobby = { action: 'invalidLobby' }
-export type ActionError = { action: 'error'; message: string }
-export type ActionJoinedLobby = { action: 'joinedLobby'; code: string; }
+type StateActionData = Partial<
+  Omit<GameStateData, "score" | "highest_score"> & {
+    score: string;
+    highest_score: string;
+  }
+>;
+export type ActionConnected = { action: "connected" };
+export type ActionInvalidLobby = { action: "invalidLobby" };
+export type ActionError = { action: "error"; message: string };
+export type ActionJoinedLobby = { action: "joinedLobby"; code: string };
 export type ActionLobbyInfo = {
-	action: 'lobbyInfo'
-	host: string
-	isHost: boolean
-	players?: Array<LobbyData & { id: string }>
-	local_id?: string
-}
-export type ActionStopGame = { action: 'stopGame' }
+  action: "lobbyInfo";
+  host: string;
+  isHost: boolean;
+  players?: Array<LobbyData & { id: string }>;
+  local_id?: string;
+};
+export type ActionStopGame = { action: "stopGame" };
 export type ActionStartGame = {
-  action: 'startGame'
-  deck: string
-  stake?: number
-  seed?: string
-  players: Array<StateActionData & {id: string}>
-}
-export type ActionStartBlind = { action: 'startBlind' }
-export type ActionWinGame = { action: 'winGame' }
-export type ActionLoseGame = { action: 'loseGame' }
+  action: "startGame";
+  deck: string;
+  stake?: number;
+  seed?: string;
+  players: Array<StateActionData & { id: string }>;
+};
+export type ActionStartBlind = { action: "startBlind" };
+export type ActionWinGame = { action: "winGame" };
+export type ActionLoseGame = { action: "loseGame" };
 export type ActionGameInfo = {
-	action: 'gameInfo'
-	small?: string
-	big?: string
-	boss?: string
-}
+  action: "gameInfo";
+  small?: string;
+  big?: string;
+  boss?: string;
+};
 
 // Generic game state update action - can update any combination of game state fields
 export type ActionGameStateUpdate = {
@@ -48,7 +53,7 @@ export type ActionSetLobbyReady = {
   action: "setLobbyReady";
   isReady: boolean;
   playerId?: string;
-}
+};
 export type ActionLobbyOptions = {
   action: "lobbyOptions";
   options: LobbyOptions;
@@ -66,7 +71,11 @@ export type ActionAsteroid = { action: "asteroid" };
 export type ActionLetsGoGamblingNemesis = { action: "letsGoGamblingNemesis" };
 export type ActionEatPizza = { action: "eatPizza"; whole: boolean };
 export type ActionSoldJoker = { action: "soldJoker" };
-export type ActionSpentLastShop = { action: "spentLastShop"; amount: number };
+export type ActionSpentLastShop = {
+  action: "spentLastShop";
+  playerId: string;
+  amount: number;
+};
 export type ActionMagnet = { action: "magnet" };
 export type ActionMagnetResponse = { action: "magnetResponse"; key: string };
 export type ActionGetEndGameJokersRequest = { action: "getEndGameJokers" };
@@ -82,8 +91,13 @@ export type ActionSetBossBlind = {
   targetScore?: string;
 };
 
-export type ActionGetNemesisStatsRequest = { action: 'endGameStatsRequested' }
-export type ActionReceiveNemesisStatsRequest = { action: 'nemesisEndGameStats', reroll_count: string, reroll_cost_total:string, vouchers:string }
+export type ActionGetNemesisStatsRequest = { action: "endGameStatsRequested" };
+export type ActionReceiveNemesisStatsRequest = {
+  action: "nemesisEndGameStats";
+  reroll_count: string;
+  reroll_cost_total: string;
+  vouchers: string;
+};
 export type ActionServerToClient =
   | ActionConnected
   | ActionInvalidLobby
@@ -119,8 +133,8 @@ export type ActionServerToClient =
   | ActionStartAnteTimer
   | ActionPauseAnteTimer
   | ActionSetBossBlind
-	| ActionGetNemesisStatsRequest
-	| ActionReceiveNemesisStatsRequest
+  | ActionGetNemesisStatsRequest
+  | ActionReceiveNemesisStatsRequest;
 
 // Client to Server
 export type ActionUsername = {
@@ -193,8 +207,13 @@ export type ActionPauseAnteTimerRequest = {
   action: "pauseAnteTimer";
   time: number;
 };
-export type ActionGetNemesisStatsResponse = { action: 'endGameStatsRequested' }
-export type ActionReceiveNemesisStatsResponse = { action: 'nemesisEndGameStats', reroll_count: string,reroll_cost_total:string, vouchers:string }
+export type ActionGetNemesisStatsResponse = { action: "endGameStatsRequested" };
+export type ActionReceiveNemesisStatsResponse = {
+  action: "nemesisEndGameStats";
+  reroll_count: string;
+  reroll_cost_total: string;
+  vouchers: string;
+};
 export type ActionFailTimer = { action: "failTimer" };
 export type ActionSyncClient = { action: "syncClient"; isCached: boolean };
 export type ActionClientToServer =
@@ -231,8 +250,8 @@ export type ActionClientToServer =
   | ActionMagnetResponseRequest
   | ActionGetEndGameJokersResponse
   | ActionReceiveEndGameJokersResponse
-	| ActionGetNemesisStatsResponse
-	| ActionReceiveNemesisStatsResponse
+  | ActionGetNemesisStatsResponse
+  | ActionReceiveNemesisStatsResponse
   | ActionSendPlayerDeck
   | ActionStartAnteTimerRequest
   | ActionPauseAnteTimerRequest

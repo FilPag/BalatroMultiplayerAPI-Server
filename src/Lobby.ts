@@ -83,18 +83,16 @@ class Lobby {
     this.options.ruleset = ruleset;
     this.players = [host];
 
+    console.log("Got ruleset", ruleset, "for lobby", this.code);
+
     switch (ruleset) {
-      case "standard":
+      case "ruleset_mp_traditional":
         this.options.multiplayer_jokers = true;
         break;
-      case "vanilla":
-        this.options.multiplayer_jokers = false;
-        break;
-      case "badlatro":
+      case "ruleset_mp_badlatro":
         this.options.multiplayer_jokers = true;
         break;
       default:
-      case "coop":
         this.options.multiplayer_jokers = false;
     }
 

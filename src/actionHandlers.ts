@@ -17,7 +17,6 @@ import type {
   ActionSetLocation,
   ActionSetFurthestBlind,
   ActionSkip,
-  ActionSpentLastShop,
   ActionStartAnteTimer,
   ActionPauseAnteTimer,
   ActionSyncClient,
@@ -28,6 +27,7 @@ import type {
   ActionReceiveNemesisStatsRequest,
   ActionSendPlayerDeck,
   ActionSetLobbyReady,
+  ActionSpentLastShopRequest,
 } from "./actions.js";
 import { generateSeed } from "./utils.js";
 
@@ -98,6 +98,7 @@ const startGameAction = (client: Client) => {
     highest_score: player.highest_score.toString(), // convert to string
     lives: player.lives,
     hands_left: player.hands_left,
+    spent_in_shop: player.gameState.spent_in_shop,
     ante: player.ante,
     skips: player.skips,
     furthest_blind: player.furthest_blind,
@@ -508,14 +509,17 @@ const soldJokerAction = (client: Client) => {
 };
 
 const spentLastShopAction = (
-  { amount }: ActionHandlerArgs<ActionSpentLastShop>,
+  { amount }: ActionHandlerArgs<ActionSpentLastShopRequest>,
   client: Client
 ) => {
-  const [lobby, enemies] = getOtherPlayers(client);
+  client.gameState.spent_in_shop.push(amount);
+  const [lobby, _] = getOtherPlayers(client);
   if (!lobby) return;
-  enemies.forEach((enemy) => {
-    enemy.sendAction({ action: "spentLastShop", amount });
-  });
+  lobby.broadcastAction({
+    action: "spentLastShop",
+    playerId: client.id,
+    amount,
+  })
 };
 
 const magnetAction = (client: Client) => {
