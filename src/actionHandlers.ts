@@ -27,6 +27,7 @@ import type {
   ActionLobbyOptions,
   ActionReceiveNemesisStatsRequest,
   ActionSendPlayerDeck,
+  ActionSetLobbyReady,
 } from "./actions.js";
 import { generateSeed } from "./utils.js";
 
@@ -151,6 +152,21 @@ const unreadyBlindAction = (client: Client) => {
 // Helper: check if all players have played their hands
 function allPlayersHandsPlayed(lobby: Lobby): boolean {
   return lobby.players.every((p) => p.hands_left === 0);
+}
+
+const setLobbyReadyAction = (
+  { isReady }: ActionHandlerArgs<ActionSetLobbyReady>,
+  client: Client) => {
+  client.isReady = isReady;
+
+  const [lobby, others] = getOtherPlayers(client);
+  others.forEach((p) => {
+    p.sendAction({
+      action: "setLobbyReady",
+      isReady,
+      playerId: client.id,
+    });
+  });
 }
 
 // Helper: broadcast game state updates efficiently
@@ -647,6 +663,7 @@ export const actionHandlers = {
   startGame: startGameAction,
   readyBlind: readyBlindAction,
   unreadyBlind: unreadyBlindAction,
+  setLobbyReady: setLobbyReadyAction,
   playHand: playHandAction,
   stopGame: stopGameAction,
   gameInfo: gameInfoAction,

@@ -44,6 +44,11 @@ export type ActionReceivePlayerDeck = {
   cards: string;
 };
 export type ActionEndPvP = { action: "endPvP"; lost: boolean };
+export type ActionSetLobbyReady = {
+  action: "setLobbyReady";
+  isReady: boolean;
+  playerId?: string;
+}
 export type ActionLobbyOptions = {
   action: "lobbyOptions";
   options: LobbyOptions;
@@ -88,6 +93,7 @@ export type ActionServerToClient =
   | ActionStopGame
   | ActionStartGame
   | ActionStartBlind
+  | ActionSetLobbyReady
   | ActionWinGame
   | ActionLoseGame
   | ActionGameInfo
@@ -200,6 +206,7 @@ export type ActionClientToServer =
   | ActionStopGameRequest
   | ActionStartGameRequest
   | ActionReadyBlind
+  | ActionSetLobbyReady
   | ActionPlayHand
   | ActionGameInfoRequest
   | ActionPlayerInfoRequest

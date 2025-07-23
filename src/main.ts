@@ -30,6 +30,7 @@ import type {
 	ActionSetBossBlind,
 	ActionSetFurthestBlind,
   ActionSendPlayerDeck,
+  ActionSetLobbyReady,
 } from './actions.js'
 
 const PORT = 8788
@@ -126,6 +127,9 @@ const server = createServer((socket) => {
             break;
           case "startGame":
             actionHandlers.startGame(client);
+            break;
+          case "setLobbyReady":
+            actionHandlers.setLobbyReady(actionArgs as ActionHandlerArgs<ActionSetLobbyReady>, client);
             break;
           case "readyBlind":
             actionHandlers.readyBlind(client);
