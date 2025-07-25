@@ -1,98 +1,66 @@
+
+// @ts-nocheck
 import net from 'net'
 
-const HOST = '127.0.0.1';
+const HOST = '192.168.0.179';
 const PORT = 8788;
-const NUM_CLIENTS = 40000; // Change this for more/less load
-const ACTION = JSON.stringify({ action: 'version' }) + '\n';
+const NUM_CLIENTS = parseInt(process.env.NUM_CLIENTS || '5', 10); // Configurable via env
+const REQUESTS_PER_CLIENT = parseInt(process.env.REQUESTS_PER_CLIENT || '100', 10); // Configurable via env
+const VERSION_ACTION = JSON.stringify({ action: 'version' });
 
-let clients = [];
-let responseTimes = new Array(NUM_CLIENTS).fill(null);
-let endedClients = 0;
-
-for (let i = 0; i < NUM_CLIENTS; i++) {
-  const client = new net.Socket();
-  const startTime = Date.now();
-  let responses = 0;
-
-  client.connect(PORT, HOST, () => {
-    for (let j = 0; j < 2; j++) {
-      client.write(ACTION);
-      client.write('INVALID_MESSAGE\n');
-    }
-    setTimeout(() => client.end(), 100);
-  });
-
-  client.on('data', (data) => {
-    responses++;
-    const elapsed = Date.now() - startTime;
-    if (responses === 1) {
-      responseTimes[i] = elapsed;
-      console.log(`Client ${i} first response time: ${elapsed}ms`);
-    }
-  });
-
-  client.on('end', () => {
-    endedClients++;
-    if (endedClients === NUM_CLIENTS) {
-      // All clients ended, calculate average
-      const validTimes = responseTimes.filter(t => t !== null);
-      const avg = validTimes.reduce((a, b) => a + b, 0) / validTimes.length;
-      console.log(`Average first response time: ${avg.toFixed(2)}ms`);
-    }
-  });
-
-  client.on('error', (err) => {
-    // Ignore connection errors for stress test
-  });
-
-  clients.push(client);
+function getVersionAction() {
+  return VERSION_ACTION;
 }
+
+
+let endedClients = 0;
+let totalResponseSum = 0;
+let totalResponseCount = 0;
 
 function spawnClient(i) {
   const client = new net.Socket();
-  const startTime = Date.now();
-  let responses = 0;
+  let responseCount = 0;
+  let startTimes = [];
+  let responseReceived = new Array(REQUESTS_PER_CLIENT).fill(false);
 
   client.connect(PORT, HOST, () => {
-    for (let j = 0; j < 2; j++) {
-      client.write(ACTION);
-      client.write('INVALID_MESSAGE\n');
+    for (let j = 0; j < REQUESTS_PER_CLIENT; j++) {
+      setTimeout(() => {
+        client.write(getVersionAction());
+        startTimes[j] = Date.now();
+      }, 500 * Math.random());
     }
-    setTimeout(() => client.end(), 100);
   });
 
-  client.on('data', (data) => {
-    responses++;
-    const elapsed = Date.now() - startTime;
-    if (responses === 1) {
-      responseTimes[i] = elapsed;
-      console.log(`Client ${i} first response time: ${elapsed}ms`);
+  client.on('data', async () => {
+    // Each response, record time for this request
+    if (responseCount < REQUESTS_PER_CLIENT) {
+      const elapsed = Date.now() - startTimes[responseCount];
+      if (elapsed > 100) {
+        console.log(`Warning: Response for client ${i}, request ${responseCount} took ${elapsed}ms`);
+      }
+      responseCount++;
+    }else{
+      client.end(); // End client after all requests
     }
   });
 
   client.on('end', () => {
-    endedClients++;
-    if (endedClients === NUM_CLIENTS) {
-      // All clients ended, calculate average
-      const validTimes = responseTimes.filter(t => t !== null);
-      const avg = validTimes.reduce((a, b) => a + b, 0) / validTimes.length;
-      console.log(`Average first response time: ${avg.toFixed(2)}ms`);
-    }
   });
 
-  client.on('error', (err) => {
+  client.on('error', () => {
     // Ignore connection errors for stress test
   });
-
-  clients.push(client);
 }
 
 function staggerClients(i) {
   if (i >= NUM_CLIENTS) return;
   spawnClient(i);
-  setTimeout(() => staggerClients(i + 1), 5); // 5ms delay between each client
+  if (i % 1000 === 0) {
+    // Log progress every 1000 clients
+    console.log(`Spawned ${i} clients...`);
+  }
+  setTimeout(() => staggerClients(i + 1), 2); // 2ms delay for higher throughput
 }
 
 staggerClients(0);
-
-console.log(`Spawned ${NUM_CLIENTS} clients.`);

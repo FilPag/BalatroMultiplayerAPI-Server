@@ -2,33 +2,33 @@ import { Socket, createServer } from 'node:net'
 import Client from './Client.js'
 import { actionHandlers } from './actionHandlers.js'
 import type {
-	Action,
-	ActionClientToServer,
-	ActionCreateLobby,
-	ActionEatPizza,
-	ActionHandlerArgs,
-	ActionJoinLobby,
-	ActionLobbyOptions,
-	ActionMagnet,
-	ActionMagnetResponse,
-	ActionPlayHand,
-	ActionReceiveEndGameJokersRequest,
-	ActionRemovePhantom,
-	ActionSendPhantom,
-	ActionServerToClient,
-	ActionSetAnte,
-	ActionSetLocation,
-	ActionSkip,
-	ActionSpentLastShop,
-	ActionStartAnteTimer,
-	ActionPauseAnteTimer,
-	ActionSyncClient,
-	ActionUsername,
-	ActionUtility,
-	ActionVersion,
-	ActionReceiveNemesisStatsRequest,
-	ActionSetBossBlind,
-	ActionSetFurthestBlind,
+  Action,
+  ActionClientToServer,
+  ActionCreateLobby,
+  ActionEatPizza,
+  ActionHandlerArgs,
+  ActionJoinLobby,
+  ActionLobbyOptions,
+  ActionMagnet,
+  ActionMagnetResponse,
+  ActionPlayHand,
+  ActionReceiveEndGameJokersRequest,
+  ActionRemovePhantom,
+  ActionSendPhantom,
+  ActionServerToClient,
+  ActionSetAnte,
+  ActionSetLocation,
+  ActionSkip,
+  ActionSpentLastShop,
+  ActionStartAnteTimer,
+  ActionPauseAnteTimer,
+  ActionSyncClient,
+  ActionUsername,
+  ActionUtility,
+  ActionVersion,
+  ActionReceiveNemesisStatsRequest,
+  ActionSetBossBlind,
+  ActionSetFurthestBlind,
   ActionSendPlayerDeck,
   ActionSetLobbyReady,
   ActionClientGameStateUpdate,
@@ -38,21 +38,21 @@ const PORT = 8788
 
 
 interface BigIntWithToJSON {
-	prototype: {
-		toJSON: () => string
-	}
+  prototype: {
+    toJSON: () => string
+  }
 }
 
 (BigInt as unknown as BigIntWithToJSON).prototype.toJSON = function () {
-	return this.toString();
+  return this.toString();
 };
 /** Serializes an action for transmission to the client */
 export const serializeAction = (action: Action): string => {
-	const entries = Object.entries(action)
-	const parts = entries
-		.filter(([_key, value]) => value !== undefined && value !== null)
-		.map(([key, value]) => `${key}:${value}`)
-	return parts.join(',')
+  const entries = Object.entries(action)
+  const parts = entries
+    .filter(([_key, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => `${key}:${value}`)
+  return parts.join(',')
 }
 
 
@@ -66,21 +66,19 @@ const server = createServer((socket) => {
   client.sendAction({ action: "connected" });
   client.sendAction({ action: "version" });
 
-  socket.on("data", (data) => {
+  socket.on("data", async (data) => {
     // Data received, reset keepAlive
     client.keepAliveTimer.refresh();
 
     const messages = data.toString().split("\n");
 
-    for (const msg of messages) {
-      if (!msg) return;
+    // Process all messages in parallel for higher throughput
+    await Promise.all(messages.filter(Boolean).map(async (msg) => {
       try {
         const message: ActionClientToServer | ActionUtility = JSON.parse(msg);
         const { action, ...actionArgs } = message;
 
         if (action !== "keepAlive" && action !== "keepAliveAck") {
-          // Use the same color print as the "Sent action" log
-          // Offload logging to the next tick to avoid blocking main loop
           setImmediate(() => {
             /*console.log(
               `[${new Date().toISOString()}] \x1b[36mReceived action "${action}" from client ${
@@ -91,195 +89,196 @@ const server = createServer((socket) => {
           });
         }
 
+        // Await all actionHandlers for non-blocking IO
         switch (action) {
           case "setLocation":
-            actionHandlers.setLocation(
+            await actionHandlers.setLocation(
               actionArgs as ActionHandlerArgs<ActionSetLocation>,
               client
             );
             break;
           case "version":
-            actionHandlers.version(
+            await actionHandlers.version(
               actionArgs as ActionHandlerArgs<ActionVersion>,
               client
             );
             break;
           case "username":
-            actionHandlers.username(
+            await actionHandlers.username(
               actionArgs as ActionHandlerArgs<ActionUsername>,
               client
             );
             break;
           case "createLobby":
-            actionHandlers.createLobby(
+            await actionHandlers.createLobby(
               actionArgs as ActionHandlerArgs<ActionCreateLobby>,
               client
             );
             break;
           case "joinLobby":
-            actionHandlers.joinLobby(
+            await actionHandlers.joinLobby(
               actionArgs as ActionHandlerArgs<ActionJoinLobby>,
               client
             );
             break;
           case "lobbyInfo":
-            actionHandlers.lobbyInfo(client);
+            await actionHandlers.lobbyInfo(client);
             break;
           case "leaveLobby":
-            actionHandlers.leaveLobby(client);
+            await actionHandlers.leaveLobby(client);
             break;
           case "startGame":
-            actionHandlers.startGame(client);
+            await actionHandlers.startGame(client);
             break;
           case "setLobbyReady":
-            actionHandlers.setLobbyReady(
+            await actionHandlers.setLobbyReady(
               actionArgs as ActionHandlerArgs<ActionSetLobbyReady>,
               client
             );
             break;
           case "readyBlind":
-            actionHandlers.readyBlind(client);
+            await actionHandlers.readyBlind(client);
             break;
           case "unreadyBlind":
-            actionHandlers.unreadyBlind(client);
+            await actionHandlers.unreadyBlind(client);
             break;
           case "keepAlive":
-            actionHandlers.keepAlive(client);
+            await actionHandlers.keepAlive(client);
             break;
           case "playHand":
-            actionHandlers.playHand(
+            await actionHandlers.playHand(
               actionArgs as ActionHandlerArgs<ActionPlayHand>,
               client
             );
             break;
           case "stopGame":
-            actionHandlers.stopGame(client);
+            await actionHandlers.stopGame(client);
             break;
           case "lobbyOptions":
-            actionHandlers.lobbyOptions(
+            await actionHandlers.lobbyOptions(
               actionArgs as ActionHandlerArgs<ActionLobbyOptions>,
               client
             );
             break;
           case "newRound":
-            actionHandlers.newRound(client);
+            await actionHandlers.newRound(client);
             break;
           case "failRound":
-            actionHandlers.failRound(client);
+            await actionHandlers.failRound(client);
             break;
           case "setAnte":
-            actionHandlers.setAnte(
+            await actionHandlers.setAnte(
               actionArgs as ActionHandlerArgs<ActionSetAnte>,
               client
             );
             break;
           case "setFurthestBlind":
-            actionHandlers.setFurthestBlind(
+            await actionHandlers.setFurthestBlind(
               actionArgs as ActionHandlerArgs<ActionSetFurthestBlind>,
               client
             );
             break;
           case "skip":
-            actionHandlers.skip(
+            await actionHandlers.skip(
               actionArgs as ActionHandlerArgs<ActionSkip>,
               client
             );
             break;
           case "setBossBlind":
-            actionHandlers.setBossBlind(
+            await actionHandlers.setBossBlind(
               actionArgs as ActionHandlerArgs<ActionSetBossBlind>,
               client
             );
             break;
           case "sendPhantom":
-            actionHandlers.sendPhantom(
+            await actionHandlers.sendPhantom(
               actionArgs as ActionHandlerArgs<ActionSendPhantom>,
               client
             );
             break;
           case "removePhantom":
-            actionHandlers.removePhantom(
+            await actionHandlers.removePhantom(
               actionArgs as ActionHandlerArgs<ActionRemovePhantom>,
               client
             );
             break;
           case "asteroid":
-            actionHandlers.asteroid(client);
+            await actionHandlers.asteroid(client);
             break;
           case "letsGoGamblingNemesis":
-            actionHandlers.letsGoGamblingNemesis(client);
+            await actionHandlers.letsGoGamblingNemesis(client);
             break;
           case "eatPizza":
-            actionHandlers.eatPizza(
+            await actionHandlers.eatPizza(
               actionArgs as ActionHandlerArgs<ActionEatPizza>,
               client
             );
             break;
           case "soldJoker":
-            actionHandlers.soldJoker(client);
+            await actionHandlers.soldJoker(client);
             break;
           case "spentLastShop":
-            actionHandlers.spentLastShop(
+            await actionHandlers.spentLastShop(
               actionArgs as ActionHandlerArgs<ActionSpentLastShop>,
               client
             );
             break;
           case "magnet":
-            actionHandlers.magnet(client);
+            await actionHandlers.magnet(client);
             break;
           case "magnetResponse":
-            actionHandlers.magnetResponse(
+            await actionHandlers.magnetResponse(
               actionArgs as ActionHandlerArgs<ActionMagnetResponse>,
               client
             );
             break;
           case "getEndGameJokers":
-            actionHandlers.getEndGameJokers(client);
+            await actionHandlers.getEndGameJokers(client);
             break;
           case "receiveEndGameJokers":
-            actionHandlers.receiveEndGameJokers(
+            await actionHandlers.receiveEndGameJokers(
               actionArgs as ActionHandlerArgs<ActionReceiveEndGameJokersRequest>,
               client
             );
             break;
           case "sendPlayerDeck":
-            actionHandlers.sendPlayerDeck(
+            await actionHandlers.sendPlayerDeck(
               actionArgs as ActionHandlerArgs<ActionSendPlayerDeck>,
               client
             );
             break;
           case "startAnteTimer":
-            actionHandlers.startAnteTimer(
+            await actionHandlers.startAnteTimer(
               actionArgs as ActionHandlerArgs<ActionStartAnteTimer>,
               client
             );
             break;
           case "pauseAnteTimer":
-            actionHandlers.pauseAnteTimer(
+            await actionHandlers.pauseAnteTimer(
               actionArgs as ActionHandlerArgs<ActionPauseAnteTimer>,
               client
             );
             break;
           case "failTimer":
-            actionHandlers.failTimer(client);
+            await actionHandlers.failTimer(client);
             break;
           case "syncClient":
-            actionHandlers.syncClient(
+            await actionHandlers.syncClient(
               actionArgs as ActionHandlerArgs<ActionSyncClient>,
               client
             );
             break;
           case "endGameStatsRequested":
-            actionHandlers.endGameStatsRequested(client);
+            await actionHandlers.endGameStatsRequested(client);
             break;
           case "nemesisEndGameStats":
-            actionHandlers.nemesisEndGameStats(
+            await actionHandlers.nemesisEndGameStats(
               actionArgs as ActionHandlerArgs<ActionReceiveNemesisStatsRequest>,
               client
             );
             break;
           case "updatePlayerGameState":
-            actionHandlers.updatePlayerGameState(
+            await actionHandlers.updatePlayerGameState(
               actionArgs as ActionHandlerArgs<ActionClientGameStateUpdate>,
               client
             );
@@ -293,7 +292,7 @@ const server = createServer((socket) => {
           message: failedToParseError,
         });
       }
-    }
+    }));
   });
 
   socket.on("end", () => {
