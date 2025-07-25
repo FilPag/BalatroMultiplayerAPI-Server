@@ -4,7 +4,7 @@
 		"build-servers": "node build.js",
 		"build": "tsc",
 		"dev": "tsx watch src/main.ts",
-		"start": "node ./dist/main.js"
+		"start": "node ./dist/src/main.js"
 	},
 	"dependencies": {
 		"msgpack": "^1.0.3",

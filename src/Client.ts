@@ -93,12 +93,12 @@ class Client {
     if (!this.socket || this.socket.destroyed || !this.socket.writable) return;
     const data = JSON.stringify(action);
     if (action.action !== "keepAlive" && action.action !== "keepAliveAck") {
-      console.log(
+      /*console.log(
         `[${new Date().toISOString()}] \x1b[31mSent action "${
           action.action
         }" to client ${this.id}\x1b[0m`,
         { ...action }
-      );
+      );*/
     }
     this.socket.write(`${data}\n`);
   }

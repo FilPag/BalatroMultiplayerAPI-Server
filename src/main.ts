@@ -82,12 +82,12 @@ const server = createServer((socket) => {
           // Use the same color print as the "Sent action" log
           // Offload logging to the next tick to avoid blocking main loop
           setImmediate(() => {
-            console.log(
+            /*console.log(
               `[${new Date().toISOString()}] \x1b[36mReceived action "${action}" from client ${
                 client.id
               }\x1b[0m`,
               actionArgs
-            );
+            );*/
           });
         }
 
@@ -287,7 +287,7 @@ const server = createServer((socket) => {
         }
       } catch (error) {
         const failedToParseError = "Failed to parse message";
-        console.error(failedToParseError, error);
+        /*console.error(failedToParseError, error);*/
         client.sendAction({
           action: "error",
           message: failedToParseError,
