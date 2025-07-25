@@ -50,9 +50,9 @@ class Client {
     firstReady: false,
   };
 
-  gameState!: GameStateData
+  gameState!: GameStateData;
 
-  onLoseGame: (client: Client) => void = () => {}
+  onLoseGame: (client: Client) => void = () => {};
 
   constructor(socket: Socket) {
     this.resetState();
@@ -105,34 +105,36 @@ class Client {
 
   resetState(): void {
     this.gameState = {
-    ante: 1,
-    discards_left: 2,
-    discards_max: 2,
-    furthest_blind: 0,
-    hands_left: 4,
-    hands_max: 4,
-    highest_score: new InsaneInt(0, 0, 0),
-    lives: 4,
-    lives_blocker: false,
-    location: "loc_selecting",
-    score: new InsaneInt(0, 0, 0),
-    skips: 0,
-    spent_in_shop: [],
-    }
+      ante: 1,
+      discards_left: 2,
+      discards_max: 2,
+      furthest_blind: 0,
+      hands_left: 4,
+      hands_max: 4,
+      highest_score: new InsaneInt(0, 0, 0),
+      lives: 4,
+      lives_blocker: false,
+      location: "loc_selecting",
+      score: new InsaneInt(0, 0, 0),
+      skips: 0,
+      spent_in_shop: [],
+    };
     this.lobbyData.isReady = false;
   }
 
   loseLives(livesLost: number = 1): void {
     if (this.gameState.lives_blocker) return;
+    console.log("Losing lives:", livesLost, "for client:", this.id);
 
     const newLives = this.gameState.lives - livesLost;
-    this.setGameStateValues({
-      lives: newLives,
-    });
+    console.log("New lives count:", newLives, "for client:", this.id);
 
     if (newLives <= 0) {
-      this.onLoseGame(this)
-      return;
+      this.onLoseGame(this);
+    } else {
+      this.setGameStateValues({
+        lives: newLives,
+      });
     }
   }
 

@@ -1,7 +1,7 @@
 import type Client from "./Client.js";
 import { InsaneInt } from "./InsaneInt.js";
 import Lobby, { getHostID, getOtherPlayers } from "./Lobby.js";
-import type {
+import {
   ActionCreateLobby,
   ActionEatPizza,
   ActionHandlerArgs,
@@ -29,6 +29,7 @@ import type {
   ActionSetLobbyReady,
   ActionSpentLastShopRequest,
   ActionClientGameStateUpdate,
+  GameMode,
 } from "./actions.js";
 import { generateSeed } from "./utils.js";
 
@@ -47,12 +48,15 @@ const createLobbyAction = (
 ) => {
   /** Also sets the client lobby to this newly created one */
   new Lobby(client, ruleset, gameMode);
+  client.onLoseGame = loseGameAction;
 };
 
 const loseGameAction = (client: Client) => {
+  console.log("Client lost the game:", client.id);
   if (!client.lobby) return;
+  console.log("After return:", client.id);
 
-  if (client.lobby.gameMode === "coopSurvival") {
+  if (client.lobby.gameMode === GameMode.CoopSurvival) {
     client.sendAction({ action: "loseGame" });
     return;
   }
@@ -61,7 +65,7 @@ const loseGameAction = (client: Client) => {
 
   if (!lobby) return;
 
-  if (lobby.gameMode === "survival") {
+  if (lobby.gameMode === GameMode.Survival) {
     const players = lobby.players;
     const alive = players.filter((p) => p.gameState.lives > 0);
 
@@ -124,8 +128,12 @@ const updateClientGameStateAction = (
   { updates }: ActionHandlerArgs<ActionClientGameStateUpdate>,
   client: Client
 ) => {
-  if (updates.score) updates.score = InsaneInt.fromString(updates.score.toString());
-  if (updates.highest_score) updates.highest_score = InsaneInt.fromString(updates.highest_score.toString());
+  if (updates.score)
+    updates.score = InsaneInt.fromString(updates.score.toString());
+  if (updates.highest_score)
+    updates.highest_score = InsaneInt.fromString(
+      updates.highest_score.toString()
+    );
   client.setGameStateValues(updates);
 };
 
@@ -271,7 +279,7 @@ const playHandAction = (
 
   if (!allPlayersHandsPlayed(lobby)) return;
 
-  if (lobby.gameMode === "coopSurvival") {
+  if (lobby.gameMode === GameMode.CoopSurvival) {
     resolveCoopSurvivalRound(target_score, lobby);
   } else {
     resolvePvPRound(lobby);
@@ -299,7 +307,7 @@ const failRoundAction = (client: Client) => {
 
   // Handle death on round loss based on lobby options and game mode
   if (lobby.options.death_on_round_loss) {
-    if (lobby.gameMode === "coopSurvival") {
+    if (lobby.gameMode === GameMode.CoopSurvival) {
       lobby.loseSharedLives(1);
     } else {
       client.loseLives(1);

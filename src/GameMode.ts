@@ -1,4 +1,4 @@
-import type { GameMode } from "./actions.js";
+import { GameMode } from "./actions.js";
 import { LobbyOptions } from "./Lobby.js";
 
 type GameModeData = {
@@ -20,7 +20,7 @@ type GameModeData = {
 const GameModes: {
   [key in GameMode]: GameModeData;
 } = {
-  attrition: {
+  [GameMode.Attrition]: {
     defaultOptions: {
       back: "Red Deck",
       challenge: 0,
@@ -29,7 +29,7 @@ const GameModes: {
       different_decks: false,
       different_seeds: false,
       disable_live_and_timer_hud: false,
-      gamemode: "gamemode_mp_attrition",
+      gamemode: GameMode.Attrition,
       gold_on_life_loss: true,
       multiplayer_jokers: true,
       no_gold_on_round_loss: false,
@@ -47,7 +47,7 @@ const GameModes: {
       return { boss: "bl_pvp" };
     },
   },
-  showdown: {
+  [GameMode.Showdown]: {
     defaultOptions: {
       back: "Red Deck",
       challenge: 0,
@@ -56,7 +56,7 @@ const GameModes: {
       different_decks: false,
       different_seeds: false,
       disable_live_and_timer_hud: false,
-      gamemode: "gamemode_mp_showdown",
+      gamemode: GameMode.Showdown,
       gold_on_life_loss: true,
       multiplayer_jokers: true,
       no_gold_on_round_loss: false,
@@ -78,7 +78,7 @@ const GameModes: {
       else return { small: "bl_pvp", big: "bl_pvp", boss: "bl_pvp" };
     },
   },
-  survival: {
+  [GameMode.Survival]: {
     defaultOptions: {
       back: "Red Deck",
       challenge: 0,
@@ -87,7 +87,7 @@ const GameModes: {
       different_decks: false,
       different_seeds: false,
       disable_live_and_timer_hud: false,
-      gamemode: "gamemode_mp_survival",
+      gamemode: GameMode.Survival,
       gold_on_life_loss: true,
       multiplayer_jokers: true,
       no_gold_on_round_loss: false,
@@ -105,7 +105,7 @@ const GameModes: {
       return {};
     },
   },
-  coopSurvival: {
+  [GameMode.CoopSurvival]: {
     defaultOptions: {
       back: "Red Deck",
       challenge: 0,
@@ -114,7 +114,7 @@ const GameModes: {
       different_decks: true,
       different_seeds: true,
       disable_live_and_timer_hud: false,
-      gamemode: "gamemode_mp_coopSurvival",
+      gamemode: GameMode.CoopSurvival,
       ruleset: "ruleset_mp_coop",
       gold_on_life_loss: false,
       multiplayer_jokers: false,

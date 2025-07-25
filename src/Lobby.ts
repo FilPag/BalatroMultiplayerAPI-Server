@@ -1,7 +1,7 @@
 import type Client from "./Client.js";
 import GameModes from "./GameMode.js";
 import { InsaneInt } from "./InsaneInt.js";
-import type {
+import {
   ActionLobbyInfo,
   ActionLobbyOptions,
   ActionServerToClient,
@@ -74,7 +74,7 @@ class Lobby {
   constructor(
     host: Client,
     ruleset: string,
-    gameMode: GameMode = "attrition",
+    gameMode: GameMode,
     maxPlayers?: number
   ) {
     do {
@@ -87,8 +87,6 @@ class Lobby {
     this.options = GameModes[gameMode].defaultOptions;
     this.options.ruleset = ruleset;
     this.players = [host];
-
-    console.log("Got ruleset", ruleset, "for lobby", this.code);
 
     switch (ruleset) {
       case "ruleset_mp_traditional":
@@ -104,7 +102,7 @@ class Lobby {
     // Set maxPlayers based on gamemode
     if (typeof maxPlayers === "number") {
       this.maxPlayers = maxPlayers;
-    } else if (gameMode === "coopSurvival") {
+    } else if (gameMode === GameMode.CoopSurvival) {
       this.maxPlayers = 8; // Allow up to 8 in coop
     } else {
       this.maxPlayers = 2; // All other modes limited to 2
@@ -224,6 +222,8 @@ class Lobby {
   };
 
   loseSharedLives = (livesLost: number = 1) => {
+    console.log("Losing shared lives:", livesLost);
+    console.log(this.players)
     for (const player of this.players) {
       player.loseLives(livesLost);
     }

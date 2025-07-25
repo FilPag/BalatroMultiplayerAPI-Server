@@ -289,4 +289,11 @@ export type ActionHandlers = {
 export type ActionHandlerArgs<T extends HandledActions> = Omit<T, "action">;
 
 // Other types
-export type GameMode = "attrition" | "showdown" | "survival" | "coopSurvival";
+export enum GameMode {
+  Attrition = "gamemode_mp_attrition",
+  Showdown = "gamemode_mp_showdown",
+  Survival = "gamemode_mp_survival",
+  CoopSurvival = "gamemode_mp_coopSurvival",
+}
+
+export type GAMEMODES = Record<GameMode, GameMode>;

@@ -36,7 +36,6 @@ import type {
 
 const PORT = 8788
 
-
 interface BigIntWithToJSON {
 	prototype: {
 		toJSON: () => string
@@ -69,7 +68,6 @@ const server = createServer((socket) => {
   socket.on("data", (data) => {
     // Data received, reset keepAlive
     client.keepAliveTimer.refresh();
-
     const messages = data.toString().split("\n");
 
     for (const msg of messages) {
